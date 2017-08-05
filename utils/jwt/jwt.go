@@ -2,14 +2,14 @@ package jwt
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
 	"time"
 
-	"net/http"
-
-	"fmt"
-
+	"github.com/asofdate/sso-jwt-auth/utils"
 	"github.com/asofdate/sso-jwt-auth/utils/logger"
 	"github.com/asofdate/sso-jwt-auth/utils/validator"
+	"github.com/astaxie/beego/logs"
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
@@ -19,23 +19,24 @@ type JwtClaims struct {
 	DomainId    string
 	OrgUnitId   string
 	Authorities string `json:"authorities"`
+	ClientIp    string
 }
 
 var (
 	key []byte = []byte("hzwy23@163.com-jwt")
 )
 
-func GenToken(user_id, domain_id, org_id string, dt int64) string {
-
+func GenToken(user_id, domain_id, org_id string, dt int64, clientIp string) string {
 	claims := JwtClaims{
-		&jwt.StandardClaims{
+		StandardClaims: &jwt.StandardClaims{
 			ExpiresAt: time.Now().Unix() + dt,
 			Issuer:    "hzwy23",
 		},
-		user_id,
-		domain_id,
-		org_id,
-		"ROLE_ADMIN,AUTH_WRITE,ACTUATOR",
+		UserId:      user_id,
+		DomainId:    domain_id,
+		OrgUnitId:   org_id,
+		Authorities: "ROLE_ADMIN,AUTH_WRITE,ACTUATOR",
+		ClientIp:    clientIp,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -47,37 +48,21 @@ func GenToken(user_id, domain_id, org_id string, dt int64) string {
 	return ss
 }
 
-func DestoryToken() string {
-
-	claims := JwtClaims{
-		&jwt.StandardClaims{
-			ExpiresAt: int64(time.Now().Unix() - 99999),
-			Issuer:    "hzwy23",
-		},
-		"exit",
-		"exit",
-		"exit",
-		"ROLE_ADMIN,AUTH_WRITE,ACTUATOR",
+func CheckToken(req *http.Request) bool {
+	cookie, err := req.Cookie("Authorization")
+	token := ""
+	if err != nil || validator.IsEmpty(cookie.Value) {
+		token = req.FormValue("Authorization")
+	} else {
+		token = cookie.Value
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString(key)
+	jclaim, err := ParseJwt(token)
 	if err != nil {
-		logger.Error(err)
-		return ""
-	}
-	return ss
-}
-
-func CheckToken(token string) bool {
-	_, err := jwt.Parse(token, func(*jwt.Token) (interface{}, error) {
-		return key, nil
-	})
-	if err != nil {
-		fmt.Println("parase with claims failed.", err)
+		logs.Error(err)
 		return false
 	}
-	return true
+	return jclaim.ClientIp == utils.GetRequestIP(req)
 }
 
 func ParseJwt(token string) (*JwtClaims, error) {

@@ -2,6 +2,8 @@ package utils
 
 import (
 	"errors"
+	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -37,4 +39,12 @@ func SplitDomain(id string) (string, error) {
 	} else {
 		return id, errors.New(no_split_str)
 	}
+}
+
+func GetRequestIP(req *http.Request) string {
+	reg, err := regexp.Compile(`:[\d]+$`)
+	if err != nil {
+		return req.RemoteAddr
+	}
+	return reg.ReplaceAllString(req.RemoteAddr, "")
 }

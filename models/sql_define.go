@@ -25,7 +25,7 @@ var (
 	sys_rdbms_022 = `select count(*) from sys_role_user r inner join sys_role_resource e on r.role_id = e.role_id inner join sys_theme_resource v on e.res_id = v.res_id inner join sys_user_theme m on v.theme_id = m.theme_id and r.user_id = m.user_id where r.user_id = ? and v.res_url = ?`
 	sys_rdbms_023 = `select t.user_id,t.user_name,a.status_desc,t.create_time, t.create_user,t.user_email,t.user_phone,i.org_unit_id,i.org_unit_desc,di.domain_id,di.domain_name,t.modify_time,t.modify_user,u.status_id from sys_user_info t inner join sys_sec_user u on t.user_id = u.user_id inner join sys_user_status_attr a on u.status_id = a.status_id inner join sys_org_info i on i.org_unit_id = t.org_unit_id inner join sys_domain_define di on i.domain_id = di.domain_id where t.user_id = ?`
 	sys_rdbms_024 = `update sys_user_theme set theme_id = ? where user_id = ?`
-	sys_rdbms_025 = `select t.domain_id as project_id, t.domain_name as project_name, s.domain_status_name  as status_name, t.domain_create_date  as maintance_date, t.domain_owner as user_id,t.domain_maintance_date,t.domain_maintance_user,t.domain_status_id from sys_domain_define t inner join sys_domain_status_attr s on t.domain_status_id = s.domain_status_id`
+	sys_rdbms_025 = `select t.domain_id as project_id, t.domain_name as project_name, s.domain_status_name  as status_name, t.create_time, t.create_user, t.modify_time, t.modify_user, t.domain_status_id from sys_domain_define t inner join sys_domain_status_attr s on t.domain_status_id = s.domain_status_id`
 	sys_rdbms_026 = `insert into sys_role_define(role_id,role_name,role_owner,role_create_date,role_status_id,domain_id,role_maintance_date,role_maintance_user,code_number) values(?,?,?,now(),?,?,now(),?,?)`
 	sys_rdbms_027 = `delete from sys_role_define where role_id = ? and domain_id = ?`
 	sys_rdbms_028 = `select t.code_number,t.role_name,t.role_owner,t.role_create_date,a.role_status_desc,a.role_status_id,t.domain_id,o.domain_name,t.role_maintance_date,t.role_maintance_user,t.role_id from sys_role_define t inner join sys_role_status_attr a on t.role_status_id = a.role_status_id inner join sys_domain_define o on t.domain_id = o.domain_id where t.domain_id = ?`
@@ -36,9 +36,9 @@ var (
 	sys_rdbms_033 = `select uuid,user_id,handle_time,client_ip,status_code,method,url,data from sys_handle_logs t where t.domain_id = ? and handle_time >= str_to_date(?,'%Y-%m-%d') and handle_time < str_to_date(?,'%Y-%m-%d') order by handle_time desc`
 	sys_rdbms_034 = `select domain_id from sys_domain_share_info t where t.target_domain_id = ?`
 	sys_rdbms_035 = `select uuid,user_id,handle_time,client_ip,status_code,method,url,data from sys_handle_logs t where t.domain_id = ? and handle_time >= str_to_date(?,'%Y-%m-%d') order by handle_time desc`
-	sys_rdbms_036 = `insert into sys_domain_define(domain_id,domain_name,domain_status_id,domain_create_date,domain_owner,domain_maintance_date,domain_maintance_user) values(?,?,?,now(),?,now(),?)`
+	sys_rdbms_036 = `insert into sys_domain_define(domain_id,domain_name,domain_status_id,create_time, create_user,modify_time,modify_user) values(?,?,?,now(),?,now(),?)`
 	sys_rdbms_037 = `delete from sys_domain_define where domain_id = ?`
-	sys_rdbms_038 = `update sys_domain_define set domain_name = ?, domain_status_id = ?, domain_maintance_date = now(), domain_maintance_user = ? where domain_id = ?`
+	sys_rdbms_038 = `update sys_domain_define set domain_name = ?, domain_status_id = ?, modify_time = now(), modify_user = ? where domain_id = ?`
 	sys_rdbms_039 = `select uuid,user_id,handle_time,client_ip,status_code,method,url,data from sys_handle_logs t where t.domain_id = ? and handle_time < str_to_date(?,'%Y-%m-%d') order by handle_time desc`
 	sys_rdbms_040 = `select uuid,user_id,handle_time,client_ip,status_code,method,url,data from sys_handle_logs t where t.domain_id = ? and user_id = ? order by handle_time desc`
 	sys_rdbms_041 = `select org_unit_id,org_unit_desc,up_org_id,t.domain_id,create_date,maintance_date,create_user,maintance_user,code_number from sys_org_info t where t.domain_id = ?`
@@ -63,7 +63,7 @@ var (
 	sys_rdbms_079 = `select inner_flag from sys_resource_info where res_id = ?`
 	sys_rdbms_080 = `select o.org_unit_id from sys_user_info i inner join sys_org_info o on i.org_unit_id = o.org_unit_id where user_id = ?`
 	sys_rdbms_083 = `select t.uuid,t.target_domain_id,i.domain_name,t.authorization_level,t.create_user,t.create_date,t.modify_user,t.modify_date from sys_domain_share_info t inner join sys_domain_define i on t.target_domain_id = i.domain_id where t.domain_id = ?`
-	sys_rdbms_084 = `select t.domain_id as project_id, t.domain_name as project_name, s.domain_status_name  as status_name, t.domain_create_date  as maintance_date, t.domain_owner as user_id,t.domain_maintance_date,t.domain_maintance_user from sys_domain_define t inner join sys_domain_status_attr s  on t.domain_status_id = s.domain_status_id where t.domain_id = ?`
+	sys_rdbms_084 = `select t.domain_id as project_id, t.domain_name as project_name, s.domain_status_name  as status_name, t.create_time, t.create_user as user_id,t.modify_time,t.modify_user from sys_domain_define t inner join sys_domain_status_attr s  on t.domain_status_id = s.domain_status_id where t.domain_id = ?`
 	sys_rdbms_085 = `select t.domain_id as project_id, t.domain_name as project_name from sys_domain_define t where not exists ( select 1 from sys_domain_share_info i where t.domain_id = i.target_domain_id and i.domain_id = ? )`
 	sys_rdbms_086 = `insert into sys_domain_share_info(uuid,domain_id,target_domain_id,authorization_level,create_user,create_date,modify_date,modify_user) values(uuid(),?,?,?,?,now(),now(),?)`
 	sys_rdbms_087 = `delete from sys_domain_share_info where uuid = ? and domain_id = ?`

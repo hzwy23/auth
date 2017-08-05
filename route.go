@@ -7,7 +7,7 @@ import (
 
 func Register() {
 
-	beego.Get("HomePage", controllers.HomePage)
+	beego.Get("/HomePage", controllers.HomePage)
 
 	//beego.Post("/login", controllers.LoginSystem)
 
