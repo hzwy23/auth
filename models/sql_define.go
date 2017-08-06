@@ -68,7 +68,7 @@ var (
 	sys_rdbms_086 = `insert into sys_domain_share_info(uuid,domain_id,target_domain_id,authorization_level,create_user,create_date,modify_date,modify_user) values(uuid(),?,?,?,?,now(),now(),?)`
 	sys_rdbms_087 = `delete from sys_domain_share_info where uuid = ? and domain_id = ?`
 	sys_rdbms_088 = `update sys_domain_share_info set authorization_level = ?,modify_user = ? , modify_date = now() where uuid = ?`
-	sys_rdbms_089 = `select t.res_id,t.res_name,t.res_attr, a.res_attr_desc,t.res_up_id,t.res_type,r.res_type_desc from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type where res_id = ?`
+	sys_rdbms_089 = `select t.res_id, t.res_name, t.res_attr, a.res_attr_desc, t.res_up_id, t.res_type, r.res_type_desc, t.sys_flag, t.inner_flag, t.service_cd from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type where res_id = ?`
 	sys_rdbms_093 = `delete from sys_role_resource where role_id = ? and res_id = ?`
 	sys_rdbms_094 = `select r.user_id, t.role_id, t.code_number,t.role_name,t.role_status_id from sys_role_define t inner join sys_role_user r on t.role_id = r.role_id where r.user_id = ? and t.role_status_id = '0'`
 	sys_rdbms_095 = `select i.user_id, t.role_id, t.code_number, t.role_name from sys_user_info i inner join sys_org_info o on i.org_unit_id = o.org_unit_id inner join sys_role_define t on o.domain_id = t.domain_id where i.user_id = ? and not exists (select 1 from sys_role_user r where i.user_id = r.user_id and r.role_id = t.role_id)`

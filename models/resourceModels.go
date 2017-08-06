@@ -31,6 +31,7 @@ type resData struct {
 	Res_type_desc string `json:"res_type_desc"`
 	Sys_flag      string `json:"sys_flag"`
 	Inner_flag    string `json:"inner_flag"`
+	Service_cd    string `json:"service_cd"`
 }
 
 // 查询所有的资源信息

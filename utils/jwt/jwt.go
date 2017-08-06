@@ -62,7 +62,9 @@ func CheckToken(req *http.Request) bool {
 		logs.Error(err)
 		return false
 	}
-	return jclaim.ClientIp == utils.GetRequestIP(req)
+	reqIp := utils.GetRequestIP(req)
+	logger.Debug("client ip is:", jclaim.ClientIp, ",request ip is:", reqIp)
+	return jclaim.ClientIp == reqIp
 }
 
 func ParseJwt(token string) (*JwtClaims, error) {
