@@ -98,6 +98,7 @@ func (this themeController) Put(ctx *context.Context) {
 	res_group_id := ctx.Request.FormValue("res_group_id")
 	res_sort_id := ctx.Request.FormValue("res_sort_id")
 	res_open_type := ctx.Request.FormValue("res_openType")
+	new_iframe := ctx.Request.FormValue("new_iframe")
 
 	if validator.IsNull(res_sort_id) {
 		res_sort_id = "0"
@@ -107,7 +108,7 @@ func (this themeController) Put(ctx *context.Context) {
 	if validator.IsIn(res_type, "0", "1", "2") {
 		if flag == 0 {
 			// 没有这个主题的配置信息,新增主题信息
-			msg, err := this.mres.Post(theme_id, res_id, res_url, res_class, res_img, res_by_color, res_group_id, res_sort_id, res_open_type)
+			msg, err := this.mres.Post(theme_id, res_id, res_url, res_class, res_img, res_by_color, res_group_id, res_sort_id, res_open_type, new_iframe)
 			if err != nil {
 				hret.Error(ctx.ResponseWriter, 421, msg, err)
 				return
@@ -116,7 +117,7 @@ func (this themeController) Put(ctx *context.Context) {
 			return
 		} else if flag > 0 {
 			// 更新主题信息
-			err := this.mres.Update(res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, theme_id, res_id, res_open_type)
+			err := this.mres.Update(new_iframe, res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, theme_id, res_id, res_open_type)
 			if err != nil {
 				logger.Error(err)
 				hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_theme_update"), err)

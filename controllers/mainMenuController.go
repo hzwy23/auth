@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"github.com/asofdate/sso-core/utils"
 	"github.com/asofdate/sso-jwt-auth/groupcache"
 	"github.com/asofdate/sso-jwt-auth/models"
 	"github.com/asofdate/sso-jwt-auth/utils/crypto/sha1"
@@ -8,7 +9,6 @@ import (
 	"github.com/asofdate/sso-jwt-auth/utils/i18n"
 	"github.com/asofdate/sso-jwt-auth/utils/jwt"
 	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-core/utils"
 	"github.com/astaxie/beego/context"
 	"github.com/astaxie/beego/logs"
 )
@@ -166,4 +166,22 @@ func IndexMenus(ctx *context.Context) {
 		return
 	}
 	ctx.ResponseWriter.Write(ojs)
+}
+
+func AllMenusExceptButton(ctx *context.Context) {
+	ctx.Request.ParseForm()
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	if err != nil {
+		logger.Error("Get user connect info failed. please login again, error info is:", err)
+		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		return
+	}
+
+	menus, err := homePageMenusModel.GetAllMenusExceptButton(jclaim.UserId)
+	if err != nil {
+		logger.Error("Get meuns failed. error info is :", err)
+		hret.Error(ctx.ResponseWriter, 403, err.Error())
+		return
+	}
+	ctx.ResponseWriter.Write(menus)
 }

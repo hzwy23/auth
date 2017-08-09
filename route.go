@@ -21,6 +21,7 @@ func Register() {
 
 	beego.Get("/v1/auth/index/entry", controllers.SubSystemEntry)
 	beego.Get("/v1/auth/main/menu", controllers.IndexMenus)
+	beego.Get("/v1/auth/menu/all/except/button", controllers.AllMenusExceptButton)
 
 	beego.Post("/v1/auth/passwd/update", controllers.PasswdController.PostModifyPasswd)
 

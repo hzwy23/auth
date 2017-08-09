@@ -3,8 +3,6 @@ package models
 import (
 	"errors"
 
-	"net/url"
-
 	"github.com/asofdate/sso-jwt-auth/utils/logger"
 	"github.com/asofdate/sso-jwt-auth/utils/validator"
 	"github.com/astaxie/beego/logs"
@@ -21,7 +19,7 @@ type resNodeData struct {
 	ResUpId string `json:"resUpId"`
 }
 
-type resData struct {
+type ResData struct {
 	Res_id        string `json:"res_id"`
 	Res_name      string `json:"res_name"`
 	Res_attr      string `json:"res_attr"`
@@ -35,13 +33,13 @@ type resData struct {
 }
 
 // 查询所有的资源信息
-func (this *ResourceModel) Get() ([]resData, error) {
+func (this *ResourceModel) Get() ([]ResData, error) {
 	rows, err := dbobj.Query(sys_rdbms_071)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
-	var rst []resData
+	var rst []ResData
 	err = dbobj.Scan(rows, &rst)
 	return rst, err
 }
@@ -58,235 +56,84 @@ func (this *ResourceModel) GetServiceCd(resId string) (string, error) {
 	return serviceCd, err
 }
 
-func (this *ResourceModel) GetChildren(res_id string) ([]resData, error) {
+func (this *ResourceModel) GetChildren(res_id string) ([]ResData, error) {
 	rst, err := this.Get()
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
-	var ret []resData
+	var ret []ResData
 	this.dfs(rst, res_id, &ret)
 	return ret, nil
 }
 
 // 所有指定资源的详细信息
-func (this *ResourceModel) Query(res_id string) ([]resData, error) {
+func (this *ResourceModel) Query(res_id string) ([]ResData, error) {
 	rows, err := dbobj.Query(sys_rdbms_089, res_id)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
-	var rst []resData
+	var rst []ResData
 	err = dbobj.Scan(rows, &rst)
 	return rst, err
 }
 
-// 新增资源
-func (this *ResourceModel) Post(data url.Values) (string, error) {
+// 新增菜单资源
+func (this *ResourceModel) Post(data ResData) (string, error) {
+	// 如果所属系统非空，表示是内部菜单
+	innnerFlag := "false"
+	if len(data.Service_cd) == 0 {
+		innnerFlag = "true"
+	}
 
-	theme_id := data.Get("theme_id")
-	res_type := data.Get("res_type")
-	res_id := data.Get("res_id")
-	res_name := data.Get("res_name")
-	res_up_id := data.Get("res_up_id")
-	res_url := data.Get("res_url")
-	res_class := data.Get("res_class")
-	res_img := data.Get("res_img")
-	res_bg_color := data.Get("res_bg_color")
-	group_id := data.Get("group_id")
-	sort_id := data.Get("sort_id")
-	res_open_type := data.Get("res_open_type")
-
+	// 1 表示叶子
+	// 0 表示结点
 	res_attr := "1"
-	if res_type == "0" || res_type == "4" {
+	if data.Res_type == "0" || data.Res_type == "4" {
 		res_attr = "0"
 	}
-	if res_type == "0" {
-		res_up_id = "-1"
+
+	// 如果是首页子系统菜单，设置上级编码为-1
+	if data.Res_type == "0" {
+		data.Res_up_id = "-1"
 	}
 
-	if !validator.IsWord(res_id) {
+	if !validator.IsWord(data.Res_id) {
 		logger.Error("资源编码必须由1,30位字母或数字组成")
 		return "error_resource_res_id", errors.New("error_resource_res_id")
 	}
 
-	if validator.IsEmpty(res_name) {
+	if validator.IsEmpty(data.Res_name) {
 		logger.Error("菜单名称不能为空")
 		return "error_resource_desc_empty", errors.New("error_resource_desc_empty")
 	}
 
-	if validator.IsEmpty(res_type) {
+	if validator.IsEmpty(data.Res_type) {
 		logger.Error("菜单类别不能为空")
 		return "error_resource_type", errors.New("error_resource_type")
 	}
 
-	switch res_type {
-	case "0":
-		// 首页主菜单信息
-		if !validator.IsURI(res_url) {
-			logger.Error("菜单路由地址不能为空")
-			return "error_resource_route_uri", errors.New("error_resource_route_uri")
-		}
-
-		if validator.IsEmpty(res_class) {
-			logger.Error("菜单样式类型不能为空")
-			return "error_resource_class_style", errors.New("error_resource_class_style")
-		}
-
-		if !validator.IsURI(res_img) {
-			logger.Error("菜单图标不能为空")
-			return "error_resource_icon", errors.New("error_resource_icon")
-		}
-
-		if !validator.IsNumeric(group_id) {
-			logger.Error("菜单分组信息必须是数字")
-			return "error_resource_group", errors.New("error_resource_group")
-		}
-
-		if !validator.IsNumeric(sort_id) {
-			logger.Error("菜单排序号必须是数字")
-			return "error_resource_sort", errors.New("error_resource_sort")
-		}
-
-		if validator.IsEmpty(res_open_type) {
-			logger.Error("打开方式不能为空")
-			return "error_resource_open_type", errors.New("error_resource_open_type")
-		}
-
-	case "1":
-		// 子系统菜单信息
-		if !validator.IsURI(res_url) {
-			logger.Error("菜单路由地址不能为空")
-			return "error_resource_route_uri", errors.New("error_resource_route_uri")
-		}
-
-		if !validator.IsWord(res_up_id) {
-			logger.Error("菜单上级编码不能为空")
-			return "error_resource_up_id", errors.New("error_resource_up_id")
-		}
-
-		if validator.IsEmpty(res_class) {
-			logger.Error("菜单样式类型不能为空")
-			return "error_resource_class_style", errors.New("error_resource_class_style")
-		}
-
-		if !validator.IsURI(res_img) {
-			logger.Error("菜单图标不能为空")
-			return "error_resource_icon", errors.New("error_resource_icon")
-		}
-
-		if !validator.IsNumeric(group_id) {
-			logger.Error("菜单分组信息必须是数字")
-			return "error_resource_group", errors.New("error_resource_group")
-		}
-
-		if !validator.IsNumeric(sort_id) {
-			logger.Error("菜单排序号必须是数字")
-			return "error_resource_sort", errors.New("error_resource_sort")
-		}
-
-		if validator.IsEmpty(res_open_type) {
-			logger.Error("打开方式不能为空")
-			return "error_resource_open_type", errors.New("error_resource_open_type")
-		}
-
-	case "2":
-		// 功能按钮信息
-		if !validator.IsWord(res_up_id) {
-			logger.Error("菜单上级编码不能为空")
-			return "error_resource_up_id", errors.New("error_resource_up_id")
-		}
-
-		if !validator.IsURI(res_url) {
-			logger.Error("菜单路由地址不能为空")
-			return "error_resource_route_uri", errors.New("error_resource_route_uri")
-		}
-		sort_id = "0"
-		res_img = ""
-		group_id = ""
-		res_class = ""
-		res_bg_color = ""
-		res_open_type = ""
-		res_open_type = ""
-
-	case "4":
-		// 虚拟节点信息
-		// 功能按钮信息
-		if !validator.IsWord(res_up_id) {
-			logger.Error("菜单上级编码不能为空")
-			return "error_resource_up_id", errors.New("error_resource_up_id")
-		}
-
-		err := this.addButtonMenu(res_id, res_name, res_attr, res_up_id, res_type)
-		if err != nil {
-			logger.Error(err)
-			return "error_resource_exec", errors.New("error_resource_exec")
-		}
-		return "success", nil
-	default:
-		return "error_resource_type", errors.New("error_resource_type")
+	if validator.IsEmpty(data.Res_up_id) {
+		logger.Error("菜单上级编码不能为空")
+		return "error_resource_up_id", errors.New("error_resource_up_id")
 	}
 
-	tx, err := dbobj.Begin()
-	if err != nil {
-		logger.Error(err)
-		return "error_sql_begin", err
-	}
+	// add sys_resource_info
+	_, err := dbobj.Exec(sys_rdbms_072,
+		data.Res_id, data.Res_name, res_attr, data.Res_up_id,
+		data.Res_type, innnerFlag, data.Service_cd)
 
-	// update sys_resource_info
-	_, err = tx.Exec(sys_rdbms_072, res_id, res_name, res_attr, res_up_id, res_type)
 	if err != nil {
 		logger.Error(err)
-		tx.Rollback()
 		return "error_resource_add", err
-	}
-
-	// update sys_theme_value
-	_, err = tx.Exec(sys_rdbms_073, theme_id, res_id, res_url, res_open_type, res_bg_color, res_class, group_id, res_img, sort_id)
-	if err != nil {
-		logger.Error(err)
-		tx.Rollback()
-		return "error_resource_theme_add", err
-	}
-
-	// 将新增资源授权给admin
-	_, err = tx.Exec(sys_rdbms_074, "vertex_root_join_sysadmin", res_id)
-	if err != nil {
-		logger.Error(err)
-		tx.Rollback()
-		return "error_resource_auth_to_admin", err
-	}
-	if tx.Commit() != nil {
-		logger.Error(err)
-		return "error_resource_commit", err
 	}
 	return "success", nil
 }
 
-// 新增按钮
-func (this ResourceModel) addButtonMenu(res_id, res_name, res_attr, res_up_id, res_type string) error {
-	tx, err := dbobj.Begin()
-	if err != nil {
-		logger.Error(err)
-		return err
-	}
-	_, err = tx.Exec(sys_rdbms_072, res_id, res_name, res_attr, res_up_id, res_type)
-	if err != nil {
-		logger.Error(err)
-		tx.Rollback()
-		return err
-	}
-	_, err = tx.Exec(sys_rdbms_074, "vertex_root_join_sysadmin", res_id)
-	if err != nil {
-		logger.Error(err)
-		tx.Rollback()
-	}
-	return tx.Commit()
-}
-
 // 删除指定的资源
 func (this *ResourceModel) Delete(res_id string) (string, error) {
-	var rst []resData
+	var rst []ResData
 
 	all, err := this.Get()
 	if err != nil {
@@ -337,35 +184,39 @@ func (this *ResourceModel) Delete(res_id string) (string, error) {
 			tx.Rollback()
 			return "error_resource_delete", err
 		}
-
 	}
 	return "error_resource_commit", tx.Commit()
 }
 
-func (this *ResourceModel) Update(res_id, res_name, res_up_id string) (string, error) {
+func (this *ResourceModel) Update(arg ResData) (string, error) {
 
-	if validator.IsEmpty(res_name) {
+	if validator.IsEmpty(arg.Res_name) {
 		return "error_resource_desc_empty", errors.New("error_resource_desc_empty")
 	}
 
-	if res_id == res_up_id {
+	if arg.Res_id == arg.Res_up_id {
 		return "error_resource_update_same", errors.New("error_resource_update_same")
 	}
 
 	//获取当前菜单所有子菜单列表
-	childList, err := this.GetChildren(res_id)
+	childList, err := this.GetChildren(arg.Res_id)
 	if err != nil {
 		logs.Error(err)
 		return "error_resource_update", errors.New("error_resource_update")
 	}
 
 	for _, val := range childList {
-		if val.Res_id == res_up_id {
+		if val.Res_id == arg.Res_up_id {
 			return "error_resource_update", errors.New("error_resource_update")
 		}
 	}
 
-	_, err = dbobj.Exec(sys_rdbms_005, res_name, res_up_id, res_id)
+	_, err = dbobj.Exec(sys_rdbms_005,
+		arg.Res_name,
+		arg.Res_up_id,
+		arg.Service_cd,
+		arg.Res_id)
+
 	if err != nil {
 		logger.Error(err)
 		return "error_resource_update", err
@@ -400,7 +251,7 @@ func (this *ResourceModel) GetNodes(resId string) ([]resNodeData, error) {
 }
 
 // 获取子资源信息
-func (this *ResourceModel) dfs(all []resData, res_id string, rst *[]resData) {
+func (this *ResourceModel) dfs(all []ResData, res_id string, rst *[]ResData) {
 	for _, val := range all {
 		if val.Res_up_id == res_id {
 			*rst = append(*rst, val)
@@ -412,3 +263,128 @@ func (this *ResourceModel) dfs(all []resData, res_id string, rst *[]resData) {
 		}
 	}
 }
+
+//
+//func (this *ResourceModel) PostThemeInfo(data url.Values) (string, error) {
+//
+//	theme_id := data.Get("theme_id")
+//	res_id := data.Get("res_id")
+//	res_url := data.Get("res_url")
+//	res_class := data.Get("res_class")
+//	res_img := data.Get("res_img")
+//	res_bg_color := data.Get("res_bg_color")
+//	group_id := data.Get("group_id")
+//	sort_id := data.Get("sort_id")
+//	res_open_type := data.Get("res_open_type")
+//	res_type := data.Get("res_type")
+//
+//	if !validator.IsWord(res_id) {
+//		logger.Error("资源编码必须由1,30位字母或数字组成")
+//		return "error_resource_res_id", errors.New("error_resource_res_id")
+//	}
+//
+//	switch res_type {
+//	case "0":
+//		// 首页主菜单信息
+//		if !validator.IsURI(res_url) {
+//			logger.Error("菜单路由地址不能为空")
+//			return "error_resource_route_uri", errors.New("error_resource_route_uri")
+//		}
+//
+//		if validator.IsEmpty(res_class) {
+//			logger.Error("菜单样式类型不能为空")
+//			return "error_resource_class_style", errors.New("error_resource_class_style")
+//		}
+//
+//		if !validator.IsURI(res_img) {
+//			logger.Error("菜单图标不能为空")
+//			return "error_resource_icon", errors.New("error_resource_icon")
+//		}
+//
+//		if !validator.IsNumeric(group_id) {
+//			logger.Error("菜单分组信息必须是数字")
+//			return "error_resource_group", errors.New("error_resource_group")
+//		}
+//
+//		if !validator.IsNumeric(sort_id) {
+//			logger.Error("菜单排序号必须是数字")
+//			return "error_resource_sort", errors.New("error_resource_sort")
+//		}
+//
+//		if validator.IsEmpty(res_open_type) {
+//			logger.Error("打开方式不能为空")
+//			return "error_resource_open_type", errors.New("error_resource_open_type")
+//		}
+//
+//	case "1":
+//		// 子系统菜单信息
+//		if !validator.IsURI(res_url) {
+//			logger.Error("菜单路由地址不能为空")
+//			return "error_resource_route_uri", errors.New("error_resource_route_uri")
+//		}
+//
+//		if validator.IsEmpty(res_class) {
+//			logger.Error("菜单样式类型不能为空")
+//			return "error_resource_class_style", errors.New("error_resource_class_style")
+//		}
+//
+//		if !validator.IsURI(res_img) {
+//			logger.Error("菜单图标不能为空")
+//			return "error_resource_icon", errors.New("error_resource_icon")
+//		}
+//
+//		if !validator.IsNumeric(group_id) {
+//			logger.Error("菜单分组信息必须是数字")
+//			return "error_resource_group", errors.New("error_resource_group")
+//		}
+//
+//		if !validator.IsNumeric(sort_id) {
+//			logger.Error("菜单排序号必须是数字")
+//			return "error_resource_sort", errors.New("error_resource_sort")
+//		}
+//
+//		if validator.IsEmpty(res_open_type) {
+//			logger.Error("打开方式不能为空")
+//			return "error_resource_open_type", errors.New("error_resource_open_type")
+//		}
+//
+//	case "2":
+//		// 功能按钮信息
+//		if !validator.IsURI(res_url) {
+//			logger.Error("菜单路由地址不能为空")
+//			return "error_resource_route_uri", errors.New("error_resource_route_uri")
+//		}
+//		sort_id = "0"
+//		res_img = ""
+//		group_id = ""
+//		res_class = ""
+//		res_bg_color = ""
+//		res_open_type = ""
+//
+//	case "4":
+//		return "success", nil
+//	default:
+//		return "error_resource_type", errors.New("error_resource_type")
+//	}
+//
+//	tx, err := dbobj.Begin()
+//	if err != nil {
+//		logger.Error(err)
+//		return "error_sql_begin", err
+//	}
+//
+//
+//	// add sys_theme_value
+//	_, err = tx.Exec(sys_rdbms_073, theme_id, res_id, res_url, res_open_type, res_bg_color, res_class, group_id, res_img, sort_id)
+//	if err != nil {
+//		logger.Error(err)
+//		tx.Rollback()
+//		return "error_resource_theme_add", err
+//	}
+//
+//	if tx.Commit() != nil {
+//		logger.Error(err)
+//		return "error_resource_commit", err
+//	}
+//	return "success", nil
+//}

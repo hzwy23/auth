@@ -14,7 +14,7 @@ func init() {
 		sys_rdbms_005 = `update sys_resource_info set res_name = :1, res_up_id = :2 where res_id = :3`
 		sys_rdbms_006 = `select count(*) from sys_theme_value where theme_id = :1 and res_id = :2`
 		sys_rdbms_007 = `delete from sys_user_info where user_id = :1 and org_unit_id = :2`
-		sys_rdbms_008 = `insert into sys_theme_value(uuid,theme_id,res_id,res_url,res_type,res_bg_color,res_class,group_id,res_img,sort_id) value(uuid(),:1,:2,:3,:4,:5,:6,:7,:8,:9)`
+		sys_rdbms_008 = `insert into sys_theme_value(uuid,theme_id,res_id,res_url,res_type,res_bg_color,res_class,group_id,res_img,sort_id) values(uuid(),:1,:2,:3,:4,:5,:6,:7,:8,:9)`
 		sys_rdbms_009 = `update sys_theme_value set res_url = :1, res_bg_color = :2, res_class = :3, res_img = :4, group_id = :5, sort_id = :6, res_type = :7 where theme_id = :8 and res_id = :9`
 		sys_rdbms_010 = `select user_id,user_passwd,status_id,continue_error_cnt from sys_sec_user where user_id = :1`
 		sys_rdbms_011 = `select distinct t2.res_url from sys_user_theme t1 inner join sys_theme_value t2 on t1.theme_id = t2.theme_id inner join sys_resource_info t3 on t2.res_id = t3.res_id where t1.user_id = :1 and t2.res_id = :2 and t3.res_type = '0'`

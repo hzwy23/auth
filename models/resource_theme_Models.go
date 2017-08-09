@@ -45,14 +45,14 @@ func (this ThemeResourceModel) GetDetails(res_id string, theme_id string) ([]the
 	return rst, err
 }
 
-func (this ThemeResourceModel) Update(res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, theme_id, res_id, res_open_type string) error {
-	_, err := dbobj.Exec(sys_rdbms_009, res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, res_open_type, theme_id, res_id)
+func (this ThemeResourceModel) Update(new_iframe, res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, theme_id, res_id, res_open_type string) error {
+	_, err := dbobj.Exec(sys_rdbms_009, res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, res_open_type, new_iframe, theme_id, res_id)
 	return err
 }
 
-func (this ThemeResourceModel) Post(theme_id, res_id, res_url, res_class, res_img, res_by_color, res_group_id, res_sort_id, res_type string) (string, error) {
+func (this ThemeResourceModel) Post(theme_id, res_id, res_url, res_class, res_img, res_by_color, res_group_id, res_sort_id, res_type, new_iframe string) (string, error) {
 
-	_, err := dbobj.Exec(sys_rdbms_008, theme_id, res_id, res_url, res_type, res_by_color, res_class, res_group_id, res_img, res_sort_id)
+	_, err := dbobj.Exec(sys_rdbms_008, theme_id, res_id, res_url, res_type, res_by_color, res_class, res_group_id, res_img, res_sort_id, new_iframe)
 
 	return "error_resource_addTheme", err
 

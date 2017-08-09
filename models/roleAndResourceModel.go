@@ -16,9 +16,9 @@ type RoleResourceRelData struct {
 
 func (this RoleAndResourceModel) Delete(role_id, res_id string) error {
 
-	var rst []resData
-	var load []resData
-	rst = append(rst, resData{Res_id: res_id})
+	var rst []ResData
+	var load []ResData
+	rst = append(rst, ResData{Res_id: res_id})
 
 	// 获取已经拥有的角色
 	all, err := this.Get(role_id)
@@ -59,9 +59,9 @@ func (this RoleAndResourceModel) Delete(role_id, res_id string) error {
 
 func (this RoleAndResourceModel) Post(role_id, res_id string) error {
 
-	var load []resData
-	var rst map[string]resData = make(map[string]resData)
-	var row []resData
+	var load []ResData
+	var rst map[string]ResData = make(map[string]ResData)
+	var row []ResData
 
 	// 获取所有资源
 	all, err := this.mres.Get()
@@ -108,7 +108,7 @@ func (this RoleAndResourceModel) Post(role_id, res_id string) error {
 		logger.Error(err)
 		return err
 	}
-	var diff map[string]resData = make(map[string]resData)
+	var diff map[string]ResData = make(map[string]ResData)
 
 	for _, val := range load {
 		diff[val.Res_id] = val
@@ -136,9 +136,9 @@ func (this RoleAndResourceModel) Post(role_id, res_id string) error {
 }
 
 // 查询没有获取到的资源信息
-func (this RoleAndResourceModel) UnGetted(role_id string) ([]resData, error) {
+func (this RoleAndResourceModel) UnGetted(role_id string) ([]ResData, error) {
 
-	var rst []resData
+	var rst []ResData
 
 	// 获取角色已经拥有了的资源id
 	role_res, err := this.get(role_id)
@@ -154,7 +154,7 @@ func (this RoleAndResourceModel) UnGetted(role_id string) ([]resData, error) {
 		return nil, err
 	}
 
-	var diff = make(map[string]resData)
+	var diff = make(map[string]ResData)
 	for _, val := range rst_res {
 		diff[val.Res_id] = val
 	}
@@ -178,9 +178,9 @@ func (this RoleAndResourceModel) UnGetted(role_id string) ([]resData, error) {
 }
 
 // 查询角色已经拥有的资源信息
-func (this RoleAndResourceModel) Get(role_id string) ([]resData, error) {
+func (this RoleAndResourceModel) Get(role_id string) ([]ResData, error) {
 
-	var rst []resData
+	var rst []ResData
 
 	role_res, err := this.get(role_id)
 	if err != nil {
@@ -197,7 +197,7 @@ func (this RoleAndResourceModel) Get(role_id string) ([]resData, error) {
 	for _, val := range role_res {
 		for _, res := range rst_res {
 			if val.Res_id == res.Res_id {
-				var one resData
+				var one ResData
 				one.Res_id = res.Res_id
 				one.Res_name = res.Res_name
 				one.Res_up_id = res.Res_up_id
@@ -210,9 +210,9 @@ func (this RoleAndResourceModel) Get(role_id string) ([]resData, error) {
 }
 
 // 获取某些角色,指定资源的所有下级资源
-func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]resData, error) {
+func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]ResData, error) {
 
-	var rst []resData
+	var rst []ResData
 	var role_res map[string]string = make(map[string]string)
 	for _, val := range roles {
 		tmp, err := this.get(val)
@@ -225,7 +225,7 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]resDa
 		}
 	}
 
-	var rst_res []resData
+	var rst_res []ResData
 	if len(res_id) == 1 {
 		var err error
 		rst_res, err = this.mres.GetChildren(res_id[0])
@@ -255,7 +255,7 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]resDa
 
 	for _, res := range rst_res {
 		if _, ok := role_res[res.Res_id]; ok {
-			var one resData
+			var one ResData
 			one.Res_id = res.Res_id
 			one.Res_name = res.Res_name
 			one.Res_up_id = res.Res_up_id
@@ -268,8 +268,8 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]resDa
 }
 
 // 查找所有的父级资源信息
-func (this RoleAndResourceModel) searchParent(diff map[string]resData, all []resData) []resData {
-	var ret []resData
+func (this RoleAndResourceModel) searchParent(diff map[string]ResData, all []ResData) []ResData {
+	var ret []ResData
 	for _, val := range diff {
 		if _, ok := diff[val.Res_up_id]; !ok {
 			for _, vl := range all {
@@ -282,8 +282,8 @@ func (this RoleAndResourceModel) searchParent(diff map[string]resData, all []res
 	return ret
 }
 
-func (this RoleAndResourceModel) search(rst, all []resData) []resData {
-	var tmp []resData
+func (this RoleAndResourceModel) search(rst, all []ResData) []ResData {
+	var tmp []ResData
 	for _, val := range rst {
 		for _, v := range all {
 			if val.Res_id == v.Res_up_id {

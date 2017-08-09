@@ -142,10 +142,16 @@ func (this resourceController) Post(ctx *context.Context) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
-
 	form := ctx.Request.Form
 
-	msg, err := this.models.Post(form)
+	var arg models.ResData
+	arg.Res_type = form.Get("res_type")
+	arg.Res_id = form.Get("res_id")
+	arg.Res_name = form.Get("res_name")
+	arg.Res_up_id = form.Get("res_up_id")
+	arg.Service_cd = form.Get("service_cd")
+
+	msg, err := this.models.Post(arg)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
@@ -230,12 +236,14 @@ func (this resourceController) Update(ctx *context.Context) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
+	var arg models.ResData
 
-	res_id := ctx.Request.FormValue("res_id")
-	res_name := ctx.Request.FormValue("res_name")
-	res_up_id := ctx.Request.FormValue("res_up_id")
+	arg.Res_id = ctx.Request.FormValue("res_id")
+	arg.Res_name = ctx.Request.FormValue("res_name")
+	arg.Res_up_id = ctx.Request.FormValue("res_up_id")
+	arg.Service_cd = ctx.Request.FormValue("service_cd")
 
-	msg, err := this.models.Update(res_id, res_name, res_up_id)
+	msg, err := this.models.Update(arg)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
