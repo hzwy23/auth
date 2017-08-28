@@ -4,25 +4,24 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/entity"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/crypto/haes"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/utils/validator"
 )
 
 type userController struct {
-	models *models.UserModel
+	models models.UserModel
 }
 
-var UserCtl = &userController{
-	new(models.UserModel),
-}
+var UserCtl = &userController{}
 
 // swagger:operation GET /v1/auth/user/page StaticFiles userController
 //
@@ -39,21 +38,15 @@ var UserCtl = &userController{
 // responses:
 //   '200':
 //     description: success
-func (userController) Page(ctx *context.Context) {
+func (userController) Page(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	rst, err := groupcache.GetStaticFile("AsofdasteUserPage")
 	if err != nil {
 		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
 		return
 	}
-
 	ctx.ResponseWriter.Write(rst)
-
 }
 
 // swagger:operation GET /v1/auth/user/get userController userController
@@ -78,36 +71,10 @@ func (userController) Page(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Get(ctx *context.Context) {
+func (this userController) Get(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
-	domain_id := ctx.Request.FormValue("domain_id")
-
-	// if the domain_id argument is empty
-	// so query default domain info
-	if validator.IsEmpty(domain_id) {
-		// get user connection info from cookes.
-		cookie, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cookie.Value)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-			return
-		}
-		domain_id = jclaim.DomainId
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "r") {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_no_auth"))
-		return
-	}
-
-	// query domain info.
-	rst, err := this.models.GetDefault(domain_id)
+	rst, err := this.models.GetDefault()
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 410, i18n.Get(ctx.Request, "error_user_query"), err)
@@ -138,29 +105,54 @@ func (this userController) Get(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Post(ctx *context.Context) {
-	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this userController) Post(ctx router.Context) {
+	var arg entity.UserInfo
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, err.Error())
 		return
 	}
-	form := ctx.Request.Form
-	domain_id := form.Get("domainId")
 
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
+	arg.UserOwner = jclaim.UserId
 
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_no_auth"))
+	password := ctx.Request.FormValue("user_passwd")
+	surepassword := ctx.Request.FormValue("user_passwd_confirm")
+
+	if validator.IsEmpty(password) {
+		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_passwd_check"))
 		return
 	}
 
-	msg, err := this.models.Post(form, jclaim.UserId)
+	if validator.IsEmpty(surepassword) {
+		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_empty"))
+		return
+	}
+
+	if password != surepassword {
+		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_confirm_failed"))
+		return
+	}
+
+	if len(strings.TrimSpace(password)) < 6 {
+		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_short"))
+		return
+	}
+
+	userPasswd, err := haes.Encrypt(password)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_passwd_encrypt"))
+		return
+	}
+
+	msg, err := this.models.Post(arg, userPasswd)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, msg), err)
@@ -184,14 +176,9 @@ func (this userController) Post(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Delete(ctx *context.Context) {
+func (this userController) Delete(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
-
-	var rst []models.UserInfo
+	var rst []entity.UserInfo
 	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &rst)
 	if err != nil {
 		logger.Error(err)
@@ -199,30 +186,20 @@ func (this userController) Delete(ctx *context.Context) {
 		return
 	}
 
-	cok, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cok.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
 
 	for _, val := range rst {
-		domain_id, err := utils.SplitDomain(val.Org_unit_id)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_query_org"))
-			return
-		}
 
-		if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-			hret.Error(ctx.ResponseWriter, 403, i18n.WriteDomain(ctx.Request, val.Domain_id))
-			return
-		}
-		if val.User_id == "admin" {
+		if utils.IsAdmin(val.UserId) {
 			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_forbid_delete_admin"))
 			return
 		}
-		if val.User_id == jclaim.UserId {
+
+		if val.UserId == jclaim.UserId {
 			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_forbid_yourself"))
 			return
 		}
@@ -275,23 +252,14 @@ func (this userController) Delete(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Search(ctx *context.Context) {
+func (this userController) Search(ctx router.Context) {
 	ctx.Request.ParseForm()
 	var org_id = ctx.Request.FormValue("org_id")
 	var status_id = ctx.Request.FormValue("status_id")
-	var domain_id = ctx.Request.FormValue("domain_id")
-	if strings.TrimSpace(domain_id) == "" {
-		cookie, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cookie.Value)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-			return
-		}
-		domain_id = jclaim.DomainId
-	}
-	logger.Debug(org_id, status_id)
-	rst, err := this.models.Search(org_id, status_id, domain_id)
+
+	logger.Debug("search user info,", org_id, status_id)
+
+	rst, err := this.models.Search(org_id, status_id)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_query"), err)
@@ -322,26 +290,10 @@ func (this userController) Search(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Put(ctx *context.Context) {
+func (this userController) Put(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
+
 	form := ctx.Request.Form
-
-	domain_id, err := hrpc.GetDomainId(form.Get("userId"))
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_get_domain"))
-		return
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_modify_passwd"))
-		return
-	}
 
 	cok, _ := ctx.Request.Cookie("Authorization")
 	jclaim, err := jwt.ParseJwt(cok.Value)
@@ -381,27 +333,10 @@ func (this userController) Put(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) ModifyPasswd(ctx *context.Context) {
+func (this userController) ModifyPasswd(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
+
 	form := ctx.Request.Form
-
-	user_id := ctx.Request.FormValue("userid")
-	did, err := hrpc.GetDomainId(user_id)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_modify"), err)
-		return
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, did, "w") {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_modify_passwd"))
-		return
-	}
 
 	msg, err := this.models.ModifyPasswd(form)
 	if err != nil {
@@ -435,22 +370,10 @@ func (this userController) ModifyPasswd(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) ModifyStatus(ctx *context.Context) {
+func (this userController) ModifyStatus(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
-
 	user_id := ctx.Request.FormValue("userId")
 	status_id := ctx.Request.FormValue("userStatus")
-
-	did, err := hrpc.GetDomainId(user_id)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_modify_status"), err)
-		return
-	}
 
 	cookie, _ := ctx.Request.Cookie("Authorization")
 	jclaim, err := jwt.ParseJwt(cookie.Value)
@@ -462,12 +385,6 @@ func (this userController) ModifyStatus(ctx *context.Context) {
 
 	if jclaim.UserId == user_id {
 		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_modify_yourself"))
-		return
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, did, "w") {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 401, i18n.Get(ctx.Request, "error_user_modify_passwd"))
 		return
 	}
 
@@ -502,7 +419,7 @@ func (this userController) ModifyStatus(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) GetUserDetails(ctx *context.Context) {
+func (this userController) GetUserDetails(ctx router.Context) {
 	ctx.Request.ParseForm()
 	cookie, _ := ctx.Request.Cookie("Authorization")
 	jclaim, err := jwt.ParseJwt(cookie.Value)

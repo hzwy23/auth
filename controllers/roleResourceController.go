@@ -1,15 +1,16 @@
 package controllers
 
 import (
+	"encoding/json"
 	"html/template"
 
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/utils/validator"
 )
 
 type roleAndResourceController struct {
@@ -45,12 +46,8 @@ var RoleAndResourceCtl = &roleAndResourceController{
 // responses:
 //   '200':
 //     description: success
-func (this roleAndResourceController) ResourcePage(ctx *context.Context) {
+func (this roleAndResourceController) ResourcePage(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	var role_id = ctx.Request.FormValue("role_id")
 
@@ -88,9 +85,9 @@ func (this roleAndResourceController) ResourcePage(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleAndResourceController) GetResource(ctx *context.Context) {
+func (this roleAndResourceController) GetResource(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -143,18 +140,21 @@ func (this roleAndResourceController) GetResource(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleAndResourceController) HandleResource(ctx *context.Context) {
+func (this roleAndResourceController) HandleResource(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+
+	var resSlick []string
+	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &resSlick)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 422, err.Error())
 		return
 	}
 
-	res_id := ctx.Request.FormValue("res_id")
 	role_id := ctx.Request.FormValue("role_id")
 	type_id := ctx.Request.FormValue("type_id")
 
-	if !validator.IsWord(res_id) {
+	if len(resSlick) == 0 {
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_resource_res_id"))
 		return
 	}
@@ -166,7 +166,7 @@ func (this roleAndResourceController) HandleResource(ctx *context.Context) {
 
 	// 撤销权限操作
 	if type_id == "0" {
-		err := this.resRoleModel.Delete(role_id, res_id)
+		err := this.resRoleModel.Delete(role_id, resSlick)
 		if err != nil {
 			logger.Error(err)
 			hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_delete_failed"))
@@ -177,10 +177,10 @@ func (this roleAndResourceController) HandleResource(ctx *context.Context) {
 		}
 	} else {
 		//授权操作
-		err := this.resRoleModel.Post(role_id, res_id)
+		err := this.resRoleModel.Post(role_id, resSlick)
 		if err != nil {
 			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_delete_failed"))
+			hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_add_resource_failed"))
 			return
 		} else {
 			hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))

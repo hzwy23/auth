@@ -1,14 +1,15 @@
 package controllers
 
 import (
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/entity"
+	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/utils/validator"
 )
 
 type themeController struct {
@@ -43,13 +44,12 @@ var ThemeCtl = &themeController{
 // responses:
 //   '200':
 //     description: success
-func (this *themeController) Post(ctx *context.Context) {
+func (this *themeController) Post(ctx router.Context) {
 	ctx.Request.ParseForm()
 	theme_id := ctx.Request.FormValue("theme_id")
 
 	// get user connection info from cookes.
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
@@ -82,42 +82,33 @@ func (this *themeController) Post(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this themeController) Put(ctx *context.Context) {
-	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this themeController) Put(ctx router.Context) {
+
+	var row entity.ThemeData
+	err := utils.ParseForm(ctx.Request, &row)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, "参数解析失败，请联系管理员")
 		return
 	}
-
-	res_id := ctx.Request.FormValue("res_id")
-	theme_id := ctx.Request.FormValue("theme_id")
-	res_url := ctx.Request.FormValue("res_url")
-	res_class := ctx.Request.FormValue("res_class")
-	res_img := ctx.Request.FormValue("res_img")
-	res_by_color := ctx.Request.FormValue("res_by_color")
-	res_group_id := ctx.Request.FormValue("res_group_id")
-	res_sort_id := ctx.Request.FormValue("res_sort_id")
-	res_open_type := ctx.Request.FormValue("res_openType")
-	new_iframe := ctx.Request.FormValue("new_iframe")
-
-	if validator.IsNull(res_sort_id) {
-		res_sort_id = "0"
+	if validator.IsNull(row.SortId) {
+		row.SortId = "0"
 	}
 
-	flag, res_type := this.mres.CheckThemeExists(theme_id, res_id)
+	flag, res_type := this.mres.CheckThemeExists(row.ThemeId, row.ResId)
 	if validator.IsIn(res_type, "0", "1", "2") {
 		if flag == 0 {
 			// 没有这个主题的配置信息,新增主题信息
-			msg, err := this.mres.Post(theme_id, res_id, res_url, res_class, res_img, res_by_color, res_group_id, res_sort_id, res_open_type, new_iframe)
+			err := this.mres.Post(row)
 			if err != nil {
-				hret.Error(ctx.ResponseWriter, 421, msg, err)
+				hret.Error(ctx.ResponseWriter, 421, err.Error())
 				return
 			}
 			hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
 			return
 		} else if flag > 0 {
 			// 更新主题信息
-			err := this.mres.Update(new_iframe, res_url, res_by_color, res_class, res_img, res_group_id, res_sort_id, theme_id, res_id, res_open_type)
+			err := this.mres.Update(row)
 			if err != nil {
 				logger.Error(err)
 				hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_theme_update"), err)
@@ -157,10 +148,13 @@ func (this themeController) Put(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this themeController) QueryTheme(ctx *context.Context) {
+func (this themeController) QueryTheme(ctx router.Context) {
 	ctx.Request.ParseForm()
-	res_id := ctx.Request.FormValue("res_id")
-	theme_id := ctx.Request.FormValue("theme_id")
+	form := ctx.Request.Form
+
+	res_id := form.Get("res_id")
+	theme_id := form.Get("theme_id")
+
 	rst, err := this.mres.GetDetails(res_id, theme_id)
 	if err != nil {
 		logger.Error(err)

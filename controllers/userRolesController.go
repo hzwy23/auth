@@ -2,23 +2,25 @@ package controllers
 
 import (
 	"encoding/json"
+	"html/template"
 
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 type userRolesController struct {
-	models *models.UserRolesModel
+	models    *models.UserRolesModel
+	roleModel *models.RoleModel
 }
 
 var UserRolesCtl = &userRolesController{
-	models: new(models.UserRolesModel),
+	models:    new(models.UserRolesModel),
+	roleModel: new(models.RoleModel),
 }
 
 // swagger:operation GET /v1/auth/batch/page StaticFiles domainShareControll
@@ -42,12 +44,7 @@ var UserRolesCtl = &userRolesController{
 //     description: request success.
 //   '404':
 //     description: page not found.
-func (this *userRolesController) Page(ctx *context.Context) {
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
-
+func (this *userRolesController) Page(ctx router.Context) {
 	// According to the key get the value from the groupCache system
 	rst, err := groupcache.GetStaticFile("AuthorityPage")
 	if err != nil {
@@ -56,6 +53,26 @@ func (this *userRolesController) Page(ctx *context.Context) {
 	}
 
 	ctx.ResponseWriter.Write(rst)
+}
+
+func (this *userRolesController) UserPage(ctx router.Context) {
+	// According to the key get the value from the groupCache system
+
+	ctx.Request.ParseForm()
+
+	var role_id = ctx.Request.FormValue("role_id")
+
+	rst, err := this.roleModel.GetRow(role_id)
+
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_resource_query"))
+		return
+	}
+	file, _ := template.ParseFiles("./views/hauth/role_user.tpl")
+
+	file.Execute(ctx.ResponseWriter, rst)
+
 }
 
 // swagger:operation GET /v1/auth/user/roles/get userRolesController userRolesController
@@ -80,7 +97,7 @@ func (this *userRolesController) Page(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userRolesController) GetRolesByUserId(ctx *context.Context) {
+func (this userRolesController) GetRolesByUserId(ctx router.Context) {
 	ctx.Request.ParseForm()
 	user_id := ctx.Request.FormValue("user_id")
 
@@ -115,11 +132,11 @@ func (this userRolesController) GetRolesByUserId(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: all domain information
-func (this userRolesController) GetOtherRoles(ctx *context.Context) {
+func (this userRolesController) GetOtherRoles(ctx router.Context) {
 	ctx.Request.ParseForm()
 	user_id := ctx.Request.FormValue("user_id")
 
-	if user_id == "" {
+	if len(user_id) == 0 {
 		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_role_no_user"))
 		return
 	}
@@ -155,32 +172,14 @@ func (this userRolesController) GetOtherRoles(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userRolesController) Auth(ctx *context.Context) {
+func (this userRolesController) Auth(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 	var rst []models.UserRolesModel
 	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &rst)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_unmarsh_json"), err)
 		return
-	}
-
-	for _, val := range rst {
-		domain_id, err := hrpc.GetDomainId(val.User_id)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_role_no_auth"))
-			return
-		}
-
-		if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-			hret.Error(ctx.ResponseWriter, 403, i18n.WriteDomain(ctx.Request, domain_id))
-			return
-		}
 	}
 
 	cok, _ := ctx.Request.Cookie("Authorization")
@@ -231,13 +230,8 @@ func (this userRolesController) Auth(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userRolesController) Revoke(ctx *context.Context) {
+func (this userRolesController) Revoke(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
-
 	form := ctx.Request.FormValue("JSON")
 	var rst []models.UserRolesModel
 
@@ -248,20 +242,6 @@ func (this userRolesController) Revoke(ctx *context.Context) {
 		return
 	}
 
-	for _, val := range rst {
-		domain_id, err := hrpc.GetDomainId(val.User_id)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_role_no_auth"))
-			return
-		}
-
-		if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-			hret.Error(ctx.ResponseWriter, 403, i18n.WriteDomain(ctx.Request, domain_id))
-			return
-		}
-	}
-
 	msg, err := this.models.Revoke(rst)
 	if err != nil {
 		logger.Error(err)
@@ -269,6 +249,41 @@ func (this userRolesController) Revoke(ctx *context.Context) {
 		return
 	}
 	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+}
+
+func (this userRolesController) GetOtherUserListByRoleId(ctx router.Context) {
+	ctx.Request.ParseForm()
+	roleId := ctx.Request.FormValue("roleId")
+	if len(roleId) == 0 {
+		logger.Error("role id is empty")
+		hret.Error(ctx.ResponseWriter, 423, "查询失败，角色编码为空")
+		return
+	}
+	rst, err := this.models.GetOtherUsersByRoleId(roleId)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		return
+	}
+	hret.Json(ctx.ResponseWriter, rst)
+}
+
+func (this userRolesController) GetUserListByRoleId(ctx router.Context) {
+	ctx.Request.ParseForm()
+
+	roleId := ctx.Request.FormValue("roleId")
+	if len(roleId) == 0 {
+		logger.Error("role id is empty")
+		hret.Error(ctx.ResponseWriter, 423, "查询失败，角色编码为空")
+		return
+	}
+	rst, err := this.models.GetRelationUsersByRoleId(roleId)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		return
+	}
+	hret.Json(ctx.ResponseWriter, rst)
 }
 
 func init() {

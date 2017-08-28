@@ -3,8 +3,10 @@ package models
 import (
 	"encoding/json"
 
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
+	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/logger"
 )
 
 const redirect = `
@@ -28,22 +30,7 @@ type HomePageMenusModel struct {
 	ms  ResourceModel
 }
 
-type homePageMenuData struct {
-	Res_id        string
-	Res_name      string
-	Res_url       string
-	Res_bg_color  string
-	Res_class     string
-	Res_img       string
-	Group_id      string
-	Res_up_id     string
-	Res_open_type string
-	New_iframe    string
-	Inner_flag    string
-	Res_attr      string
-}
-
-func (this HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
+func (this *HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
 
 	// 首先获取用户主题信息
 	theme, err := this.mut.Get(useId)
@@ -53,25 +40,25 @@ func (this HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
 	}
 
 	// 获取这个主题的所有资源信息
-	theme_resource, err := this.mts.Get(theme[0].Theme_id)
+	theme_resource, err := this.mts.Get(theme[0].ThemeId)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
-	var mres = make(map[string]ResData)
+	var mres = make(map[string]entity.ResData)
 
 	// 如果是超级管理员用户，
 	// 获取系统中所有的菜单信息
-	if useId == "admin" {
+	if utils.IsAdmin(useId) {
 		resdata, err := this.ms.GetChildren(id)
 		if err != nil {
 			logger.Error(err)
 			return nil, err
 		}
 		for _, val := range resdata {
-			if val.Res_type == typeId {
-				mres[val.Res_id] = val
+			if val.Restype == typeId {
+				mres[val.ResId] = val
 			}
 		}
 	} else {
@@ -94,33 +81,34 @@ func (this HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
 			return nil, err
 		}
 		for _, val := range role_resource {
-			mres[val.Res_id] = val
+			mres[val.ResId] = val
 		}
 	}
 
 	// 获取角色拥有的资源信息
-	var rst []homePageMenuData
+	var rst []entity.HomePageMenuData
 	for _, t_res := range theme_resource {
-		if val, ok := mres[t_res.Res_id]; ok {
-			var one homePageMenuData
-			one.Res_id = t_res.Res_id
-			one.Res_up_id = val.Res_up_id
-			one.Res_name = val.Res_name
-			one.Group_id = t_res.Group_id
-			one.Res_bg_color = t_res.Res_bg_color
-			one.Res_class = t_res.Res_class
-			one.Res_img = t_res.Res_img
-			one.Res_url = t_res.Res_url
-			one.Res_open_type = t_res.Res_type
-			one.New_iframe = t_res.New_iframe
-			one.Inner_flag = val.Inner_flag
+		if val, ok := mres[t_res.ResId]; ok {
+			var one entity.HomePageMenuData
+			one.Res_id = t_res.ResId
+			one.Res_up_id = val.ResUpid
+			one.Res_name = val.ResName
+			one.Group_id = t_res.GroupId
+			one.Res_bg_color = t_res.ResBgColor
+			one.Res_class = t_res.ResClass
+			one.Res_img = t_res.ResImg
+			one.Res_url = t_res.ResUrl
+			one.Res_open_type = t_res.ResOpenType
+			one.New_iframe = t_res.NewIframe
+			one.Inner_flag = val.InnerFlag
+			one.ServiceCd = val.ServiceCd
 			rst = append(rst, one)
 		}
 	}
 	return json.Marshal(rst)
 }
 
-func (this HomePageMenusModel) GetUrl(user_id, id string) (string, error) {
+func (this *HomePageMenusModel) GetUrl(user_id, id string) (string, error) {
 	row := dbobj.QueryRow(sys_rdbms_011, user_id, id)
 	var url string
 	err := row.Scan(&url)
@@ -131,7 +119,7 @@ func (this HomePageMenusModel) GetUrl(user_id, id string) (string, error) {
 	return url, nil
 }
 
-func (this HomePageMenusModel) GetAllMenusExceptButton(userId string) ([]byte, error) {
+func (this *HomePageMenusModel) GetAllMenusExceptButton(userId string, menuId string) ([]byte, error) {
 	// 首先获取用户主题信息
 	theme, err := this.mut.Get(userId)
 	if err != nil || len(theme) != 1 {
@@ -140,25 +128,40 @@ func (this HomePageMenusModel) GetAllMenusExceptButton(userId string) ([]byte, e
 	}
 
 	// 获取这个主题的所有资源信息
-	theme_resource, err := this.mts.Get(theme[0].Theme_id)
+	theme_resource, err := this.mts.Get(theme[0].ThemeId)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
-	var mres = make(map[string]ResData)
+	var mres = make(map[string]entity.ResData)
+	var mtheme = make(map[string]bool)
+	for _, val := range theme_resource {
+		mtheme[val.ResId] = true
+	}
+
+	var rst []entity.HomePageMenuData
 
 	// 如果是超级管理员用户，
 	// 获取系统中所有的菜单信息
-	if userId == "admin" {
+	if utils.IsAdmin(userId) {
 		// 获取所有的下级资源
-		resdata, err := this.ms.GetChildren("-1")
+		resdata, err := this.ms.GetChildExceptButton(menuId)
 		if err != nil {
 			logger.Error(err)
 			return nil, err
 		}
 		for _, val := range resdata {
-			if val.Res_type != "2" {
-				mres[val.Res_id] = val
+			// 当菜单资源没有配置主题信息，或者是菜单结点时
+			if _, yes := mtheme[val.ResId]; !yes || val.Restype == "4" {
+				var one entity.HomePageMenuData
+				one.Res_id = val.ResId
+				one.Res_up_id = val.ResUpid
+				one.Res_name = val.ResName
+				one.Inner_flag = val.InnerFlag
+				one.Res_attr = val.ResAttr
+				rst = append(rst, one)
+			} else {
+				mres[val.ResId] = val
 			}
 		}
 	} else {
@@ -175,48 +178,47 @@ func (this HomePageMenusModel) GetAllMenusExceptButton(userId string) ([]byte, e
 		}
 
 		// 获取角色拥有的资源信息
-		role_resource, err := this.mrs.Gets(role_list, "-1", "0")
+		role_resource, err := this.mrs.Gets(role_list, menuId)
 		if err != nil {
 			logger.Error(err)
 			return nil, err
 		}
 		for _, val := range role_resource {
-			mres[val.Res_id] = val
+			if val.Restype == "2" {
+				continue
+			} else if _, yes := mtheme[val.ResId]; !yes || val.Restype == "4" {
+				var one entity.HomePageMenuData
+				one.Res_id = val.ResId
+				one.Res_up_id = val.ResUpid
+				one.Res_name = val.ResName
+				one.Inner_flag = val.InnerFlag
+				one.Res_attr = val.ResAttr
+				rst = append(rst, one)
+			} else {
+				mres[val.ResId] = val
+			}
 		}
-	}
-
-	themeResourceMap := make(map[string]themeData)
-	for _, t_res := range theme_resource {
-		themeResourceMap[t_res.Res_id] = t_res
 	}
 
 	// 获取角色拥有的资源信息
-	var rst []homePageMenuData
-	for _, val := range mres {
-		if t_res, ok := themeResourceMap[val.Res_id]; ok {
-			var one homePageMenuData
-			one.Res_id = t_res.Res_id
-			one.Res_up_id = val.Res_up_id
-			one.Res_name = val.Res_name
-			one.Group_id = t_res.Group_id
-			one.Res_bg_color = t_res.Res_bg_color
-			one.Res_class = t_res.Res_class
-			one.Res_img = t_res.Res_img
-			one.Res_url = t_res.Res_url
-			one.Res_open_type = t_res.Res_type
-			one.New_iframe = t_res.New_iframe
-			one.Inner_flag = val.Inner_flag
-			one.Res_attr = val.Res_attr
-			rst = append(rst, one)
-		} else {
-			var one homePageMenuData
-			one.Res_id = val.Res_id
-			one.Res_up_id = val.Res_up_id
-			one.Res_name = val.Res_name
-			one.Inner_flag = val.Inner_flag
-			one.Res_attr = val.Res_attr
+	for _, t_res := range theme_resource {
+		if val, ok := mres[t_res.ResId]; ok {
+			var one entity.HomePageMenuData
+			one.Res_id = t_res.ResId
+			one.Res_up_id = val.ResUpid
+			one.Res_name = val.ResName
+			one.Group_id = t_res.GroupId
+			one.Res_bg_color = t_res.ResBgColor
+			one.Res_class = t_res.ResClass
+			one.Res_img = t_res.ResImg
+			one.Res_url = t_res.ResUrl
+			one.Res_open_type = t_res.ResOpenType
+			one.New_iframe = t_res.NewIframe
+			one.Inner_flag = val.InnerFlag
+			one.Res_attr = val.ResAttr
 			rst = append(rst, one)
 		}
 	}
+
 	return json.Marshal(rst)
 }

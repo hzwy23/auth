@@ -1,12 +1,11 @@
-package sso_jwt_auth
+package auth_core
 
 import (
 	"sync"
 
-	"github.com/asofdate/sso-jwt-auth/filter"
-	"github.com/asofdate/sso-jwt-auth/service"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego"
+	"github.com/asofdate/auth-core/filter"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 type RegisterFunc func()
@@ -27,14 +26,18 @@ func AppRegister(name string, registerFunc RegisterFunc) {
 }
 
 func Bootstrap() {
-	// 开启消息，
-	// 将80端口的请求，重定向到443上
-	go service.RedictToHtpps()
+
 	for key, fc := range regApp {
 		logger.Info("register App, name is:", key)
 		fc()
 	}
+
+	// 开启路由追踪
 	filter.LoggerFilter()
+
+	// 用户连接与权限校验
+	filter.AuthFilter()
+
 	// 启动beego服务
-	beego.Run()
+	router.Run()
 }

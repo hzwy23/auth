@@ -2,15 +2,16 @@ package controllers
 
 import (
 	"encoding/json"
-
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/entity"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 type domainController struct {
@@ -39,13 +40,8 @@ var DomainCtl = &domainController{models: &models.DomainMmodel{}}
 //     description: disconnect or not access.
 //   '404':
 //     description: page not found
-func (this *domainController) Page(ctx *context.Context) {
+func (this *domainController) Page(ctx router.Context) {
 	defer hret.HttpPanic()
-
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	rst, err := groupcache.GetStaticFile("DomainPage")
 	if err != nil {
@@ -79,14 +75,8 @@ func (this *domainController) Page(ctx *context.Context) {
 //     description: Insufficient permissions
 //   '421':
 //     description: get domain information failed.
-func (this *domainController) Get(ctx *context.Context) {
+func (this *domainController) Get(ctx router.Context) {
 	ctx.Request.ParseForm()
-
-	// 权限控制
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	rst, err := this.models.Get()
 	if err != nil {
@@ -133,27 +123,24 @@ func (this *domainController) Get(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: all domain information
-func (this *domainController) Post(ctx *context.Context) {
+func (this *domainController) Post(ctx router.Context) {
 	ctx.Request.ParseForm()
-
-	// Check user permissions
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+	var arg entity.DomainData
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(ctx.ResponseWriter, 421, err.Error())
 		return
 	}
-	form := ctx.Request.Form
 
 	// get user connection information from cookie
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
 
-	// submit new domain info to user model
-	// If success, will return nil, or not.
-	msg, err := this.models.Post(form, jclaim.UserId, jclaim.DomainId)
+	arg.ModifyUser = jclaim.UserId
+	msg, err := this.models.Post(arg)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
@@ -193,9 +180,9 @@ func (this *domainController) Post(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this *domainController) Delete(ctx *context.Context) {
+func (this *domainController) Delete(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -207,27 +194,6 @@ func (this *domainController) Delete(ctx *context.Context) {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_domain_delete"))
 		return
-	}
-
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_disconnect"))
-		return
-	}
-
-	// 授权校验
-	for _, val := range js {
-		if val.Project_id == jclaim.DomainId {
-			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_forbid_delete_your_domain"))
-			return
-		}
-
-		if !hrpc.DomainAuth(ctx.Request, val.Project_id, "w") {
-			hret.Error(ctx.ResponseWriter, 403, i18n.WriteDomain(ctx.Request, val.Project_id))
-			return
-		}
 	}
 
 	err = this.models.Delete(js)
@@ -277,30 +243,25 @@ func (this *domainController) Delete(ctx *context.Context) {
 //     description: Insufficient permissions
 //   '421':
 //     description: Post domain information failed.
-func (this *domainController) Put(ctx *context.Context) {
+func (this *domainController) Put(ctx router.Context) {
 	ctx.Request.ParseForm()
 
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+	var arg entity.DomainData
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(ctx.ResponseWriter, 421, err.Error())
 		return
 	}
 
-	form := ctx.Request.Form
-
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
+	arg.ModifyUser = jclaim.UserId
 
-	if !hrpc.DomainAuth(ctx.Request, form.Get("domainId"), "w") {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied_modify"))
-		return
-	}
-
-	msg, err := this.models.Update(form, jclaim.UserId)
+	msg, err := this.models.Update(arg)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
@@ -310,7 +271,7 @@ func (this *domainController) Put(ctx *context.Context) {
 	hret.Success(ctx.ResponseWriter, i18n.Get(ctx.Request, "success"))
 }
 
-// swagger:operation GET /v1/auth/domain/row/details domainController getDomainDetailsInfo
+// swagger:operation GET /v1/auth/domain/details domainController getDomainDetailsInfo
 //
 // 返回指定域的详细信息.
 //
@@ -334,8 +295,9 @@ func (this *domainController) Put(ctx *context.Context) {
 //     description: success
 //   '419':
 //     description: get domain detailes failed.
-func (this *domainController) GetDetails(ctx *context.Context) {
+func (this *domainController) GetDetails(ctx router.Context) {
 	ctx.Request.ParseForm()
+
 	var domain_id = ctx.Request.FormValue("domain_id")
 
 	rst, err := this.models.GetRow(domain_id)
@@ -345,37 +307,6 @@ func (this *domainController) GetDetails(ctx *context.Context) {
 		return
 	}
 	hret.Json(ctx.ResponseWriter, rst)
-}
-
-// swagger:operation GET /v1/auth/domain/id domainController getDomainId
-//
-// 返回用户所属域ID号
-//
-// 查询用户登录信息, 根据用户信息,返回用户所属域.
-//
-// ---
-// produces:
-// - application/json
-// - application/xml
-// - text/xml
-// - text/html
-// responses:
-//   '200':
-//     description: success
-//   '403':
-//     description: Insufficient permissions
-func (this *domainController) GetId(ctx *context.Context) {
-	ctx.Request.ParseForm()
-
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request), err)
-		return
-	}
-
-	hret.Json(ctx.ResponseWriter, jclaim.DomainId)
 }
 
 func init() {

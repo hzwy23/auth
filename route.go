@@ -1,109 +1,109 @@
-package sso_jwt_auth
+package auth_core
 
 import (
-	"github.com/asofdate/sso-jwt-auth/controllers"
-	"github.com/astaxie/beego"
+	"github.com/asofdate/auth-core/controllers"
+	"github.com/hzwy23/utils/router"
 )
 
 func Register() {
 
-	beego.Get("/HomePage", controllers.HomePage)
+	router.Get("/HomePage", controllers.HomePage)
+	router.Post("/login", controllers.LoginSystem)
+	router.Any("/logout", controllers.LogoutSystem)
+	router.Get("/", controllers.IndexPage)
 
-	//beego.Post("/login", controllers.LoginSystem)
+	router.Post("/v1/auth/theme/update", controllers.ThemeCtl.Post)
+	router.Put("/v1/auth/resource/config/theme", controllers.ThemeCtl.Put)
+	router.Get("/v1/auth/resource/queryTheme", controllers.ThemeCtl.QueryTheme)
 
-	//beego.Any("/logout", controllers.LogoutSystem)
-
-	//beego.Get("/", controllers.IndexPage)
-
-	beego.Post("/v1/auth/theme/update", controllers.ThemeCtl.Post)
-	beego.Put("/v1/auth/resource/config/theme", controllers.ThemeCtl.Put)
-	beego.Get("/v1/auth/resource/queryTheme", controllers.ThemeCtl.QueryTheme)
-
-	beego.Get("/v1/auth/index/entry", controllers.SubSystemEntry)
-	beego.Get("/v1/auth/main/menu", controllers.IndexMenus)
-	beego.Get("/v1/auth/menu/all/except/button", controllers.AllMenusExceptButton)
-
-	beego.Post("/v1/auth/passwd/update", controllers.PasswdController.PostModifyPasswd)
+	router.Get("/v1/auth/index/entry", controllers.SubSystemEntry)
+	router.Get("/v1/auth/main/menu", controllers.IndexMenus)
+	router.Get("/v1/auth/menu/all/except/button", controllers.AllMenusExceptButton)
+	router.Post("/v1/auth/passwd/update", controllers.PasswdController.PostModifyPasswd)
 
 	//domain_info
-	beego.Get("/v1/auth/domain/share/page", controllers.DomainShareCtl.Page)
-	beego.Get("/v1/auth/domain/get", controllers.DomainCtl.Get)
-	beego.Post("/v1/auth/domain/post", controllers.DomainCtl.Post)
-	beego.Post("/v1/auth/domain/delete", controllers.DomainCtl.Delete)
-	beego.Put("/v1/auth/domain/update", controllers.DomainCtl.Put)
-
-	//domain_share_info
-	beego.Get("/v1/auth/domain/share/get", controllers.DomainShareCtl.Get)
-	beego.Post("/v1/auth/domain/share/post", controllers.DomainShareCtl.Post)
-	beego.Put("/v1/auth/domain/share/put", controllers.DomainShareCtl.Put)
-	beego.Post("/v1/auth/domain/share/delete", controllers.DomainShareCtl.Delete)
-
-	beego.Get("/v1/auth/domain/owner", controllers.DomainShareCtl.GetAccessDomain)
-	beego.Get("/v1/auth/domain/self/owner", controllers.DomainShareCtl.GetDomainOwner)
-	beego.Get("/v1/auth/domain/row/details", controllers.DomainCtl.GetDetails)
-	beego.Get("/v1/auth/domain/share/unauth", controllers.DomainShareCtl.UnAuth)
+	router.Get("/v1/auth/domain/get", controllers.DomainCtl.Get)
+	router.Post("/v1/auth/domain/post", controllers.DomainCtl.Post)
+	router.Post("/v1/auth/domain/delete", controllers.DomainCtl.Delete)
+	router.Put("/v1/auth/domain/update", controllers.DomainCtl.Put)
+	router.Get("/v1/auth/domain/details", controllers.DomainCtl.GetDetails)
 
 	//handle_logs
-	beego.Get("/v1/auth/handle/logs/search", controllers.HandleLogsCtl.SerachLogs)
-	beego.Get("/v1/auth/handle/logs", controllers.HandleLogsCtl.GetHandleLogs)
-	beego.Get("/v1/auth/handle/logs/download", controllers.HandleLogsCtl.Download)
+	router.Get("/v1/auth/handle/logs/search", controllers.HandleLogsCtl.SerachLogs)
+	router.Get("/v1/auth/handle/logs", controllers.HandleLogsCtl.GetHandleLogs)
+	router.Get("/v1/auth/handle/logs/download", controllers.HandleLogsCtl.Download)
 
 	//org_info
-	beego.Get("/v1/auth/resource/org/get", controllers.OrgCtl.Get)
-	beego.Post("/v1/auth/resource/org/insert", controllers.OrgCtl.Post)
-	beego.Put("/v1/auth/resource/org/update", controllers.OrgCtl.Update)
-	beego.Post("/v1/auth/resource/org/delete", controllers.OrgCtl.Delete)
-	beego.Get("/v1/auth/resource/org/download", controllers.OrgCtl.Download)
-	beego.Post("/v1/auth/resource/org/upload", controllers.OrgCtl.Upload)
-	beego.Get("/v1/auth/relation/domain/org", controllers.OrgCtl.GetSubOrgInfo)
-	beego.Get("/v1/auth/domain/id", controllers.DomainCtl.GetId)
+	router.Get("/v1/auth/org/get", controllers.OrgCtl.Get)
+	router.Post("/v1/auth/org/insert", controllers.OrgCtl.Post)
+	router.Put("/v1/auth/org/update", controllers.OrgCtl.Update)
+	router.Post("/v1/auth/org/delete", controllers.OrgCtl.Delete)
+	router.Get("/v1/auth/org/download", controllers.OrgCtl.Download)
+	router.Post("/v1/auth/org/upload", controllers.OrgCtl.Upload)
+	router.Get("/v1/auth/org/sub", controllers.OrgCtl.GetSubOrgInfo)
+	router.Get("/v1/auth/org/details", controllers.OrgCtl.GetDetails)
 
 	//resource_info
-	beego.Post("/v1/auth/resource/delete", controllers.ResourceCtl.Delete)
-	beego.Post("/v1/auth/resource/post", controllers.ResourceCtl.Post)
-	beego.Put("/v1/auth/resource/update", controllers.ResourceCtl.Update)
-	beego.Get("/v1/auth/resource/get", controllers.ResourceCtl.Get)
-	beego.Get("/v1/auth/resource/query", controllers.ResourceCtl.Query)
-	beego.Get("/v1/auth/resource/node", controllers.ResourceCtl.GetNodes)
+	router.Post("/v1/auth/resource/delete", controllers.ResourceCtl.Delete)
+	router.Post("/v1/auth/resource/post", controllers.ResourceCtl.Post)
+	router.Put("/v1/auth/resource/update", controllers.ResourceCtl.Update)
+	router.Get("/v1/auth/resource/get", controllers.ResourceCtl.Get)
+	router.Get("/v1/auth/resource/query", controllers.ResourceCtl.Query)
+	router.Get("/v1/auth/resource/node", controllers.ResourceCtl.GetNodes)
+	router.Get("/v1/auth/resource/subsystem", controllers.ResourceCtl.GetSubsystemList)
+
+	// 功能服务路由注册
+	// 主要完成非菜单类型的路由的配置管理
+	router.RESTful("/v1/auth/resource/func", &controllers.FuncSrvController{})
+	router.RESTful("/v1/auth/privilege/user/domain", &controllers.UserDomainPrivilegeController{})
+	router.RESTful("/v1/auth/privilege", &controllers.SysPrivilegeController{})
+	router.RESTful("/v1/auth/privilege/domain", &controllers.SysPrivilegeDomainController{})
+	router.RESTful("/v1/auth/privilege/role", &controllers.SysPrivilegeRoleController{})
 
 	//role_resource_info
-	beego.Get("/v1/auth/role/resource/get", controllers.RoleAndResourceCtl.GetResource)
-	beego.Post("/v1/auth/role/resource/rights", controllers.RoleAndResourceCtl.HandleResource)
+	router.Get("/v1/auth/role/resource/get", controllers.RoleAndResourceCtl.GetResource)
+	router.Post("/v1/auth/role/resource/rights", controllers.RoleAndResourceCtl.HandleResource)
+	router.Get("/v1/auth/role/resource/details", controllers.RoleAndResourceCtl.ResourcePage)
 
 	//role_info
-	beego.Get("/v1/auth/role/get", controllers.RoleCtl.Get)
-	beego.Post("/v1/auth/role/post", controllers.RoleCtl.Post)
-	beego.Put("/v1/auth/role/update", controllers.RoleCtl.Update)
-	beego.Post("/v1/auth/role/delete", controllers.RoleCtl.Delete)
+	router.Get("/v1/auth/role/get", controllers.RoleCtl.Get)
+	router.Post("/v1/auth/role/post", controllers.RoleCtl.Post)
+	router.Put("/v1/auth/role/update", controllers.RoleCtl.Update)
+	router.Post("/v1/auth/role/delete", controllers.RoleCtl.Delete)
 
-	// role and resource relation
-	beego.Get("/v1/auth/role/resource/details", controllers.RoleAndResourceCtl.ResourcePage)
-
-	//sys_batch_info
-	beego.Get("/v1/auth/user/roles/get", controllers.UserRolesCtl.GetRolesByUserId)
-	beego.Get("/v1/auth/user/search", controllers.UserCtl.Search)
-	beego.Get("/v1/auth/user/roles/other", controllers.UserRolesCtl.GetOtherRoles)
-	beego.Post("/v1/auth/user/roles/auth", controllers.UserRolesCtl.Auth)
-	beego.Post("/v1/auth/user/roles/revoke", controllers.UserRolesCtl.Revoke)
+	//sys_auth_info
+	router.Get("/v1/auth/user/roles/get", controllers.UserRolesCtl.GetRolesByUserId)
+	router.Get("/v1/auth/user/search", controllers.UserCtl.Search)
+	router.Get("/v1/auth/user/roles/other", controllers.UserRolesCtl.GetOtherRoles)
+	router.Post("/v1/auth/user/roles/auth", controllers.UserRolesCtl.Auth)
+	router.Post("/v1/auth/user/roles/revoke", controllers.UserRolesCtl.Revoke)
+	router.Get("/v1/auth/role/query/user", controllers.UserRolesCtl.GetUserListByRoleId)
+	router.Get("/v1/auth/role/query/user/other", controllers.UserRolesCtl.GetOtherUserListByRoleId)
 
 	//user_info
-	beego.Get("/v1/auth/user/get", controllers.UserCtl.Get)
-	beego.Post("/v1/auth/user/post", controllers.UserCtl.Post)
-	beego.Put("/v1/auth/user/put", controllers.UserCtl.Put)
-	beego.Put("/v1/auth/user/modify/passwd", controllers.UserCtl.ModifyPasswd)
-	beego.Put("/v1/auth/user/modify/status", controllers.UserCtl.ModifyStatus)
-	beego.Post("/v1/auth/user/delete", controllers.UserCtl.Delete)
-	beego.Get("/v1/auth/user/query", controllers.UserCtl.GetUserDetails)
+	router.Get("/v1/auth/user/get", controllers.UserCtl.Get)
+	router.Post("/v1/auth/user/post", controllers.UserCtl.Post)
+	router.Put("/v1/auth/user/put", controllers.UserCtl.Put)
+	router.Put("/v1/auth/user/modify/passwd", controllers.UserCtl.ModifyPasswd)
+	router.Put("/v1/auth/user/modify/status", controllers.UserCtl.ModifyStatus)
+	router.Post("/v1/auth/user/delete", controllers.UserCtl.Delete)
+	router.Get("/v1/auth/user/query", controllers.UserCtl.GetUserDetails)
 
 	// help
-	beego.Get("/v1/help/system/help", controllers.HelpCtl.Page)
-	///////////////////////////////////////////////////////////////////////////
-	beego.Get("/v1/auth/HandleLogsPage", controllers.HandleLogsCtl.Page)
-	beego.Get("/v1/auth/domain/page", controllers.DomainCtl.Page)
-	beego.Get("/v1/auth/batch/page", controllers.UserRolesCtl.Page)
-	beego.Get("/v1/auth/resource/org/page", controllers.OrgCtl.Page)
-	beego.Get("/v1/auth/resource/page", controllers.ResourceCtl.Page)
-	beego.Get("/v1/auth/user/page", controllers.UserCtl.Page)
-	beego.Get("/v1/auth/role/page", controllers.RoleCtl.Page)
-	beego.Get("/v1/auth/swagger/page", controllers.SwaggerCtl.Page)
+	router.Get("/v1/help/system/help", controllers.HelpCtl.Page)
+
+	// pages
+	router.Get("/v1/auth/HandleLogsPage", controllers.HandleLogsCtl.Page)
+	router.Get("/v1/auth/domain/page", controllers.DomainCtl.Page)
+	router.Get("/v1/auth/batch/page", controllers.UserRolesCtl.Page)
+	router.Get("/v1/auth/resource/org/page", controllers.OrgCtl.Page)
+	router.Get("/v1/auth/resource/page", controllers.ResourceCtl.Page)
+	router.Get("/v1/auth/user/page", controllers.UserCtl.Page)
+	router.Get("/v1/auth/role/page", controllers.RoleCtl.Page)
+	router.Get("/v1/auth/swagger/page", controllers.SwaggerCtl.Page)
+	router.Get("/v1/auth/resource/service", controllers.GetServiceManagePage)
+	router.Get("/v1/auth/role/user/page", controllers.UserRolesCtl.UserPage)
+	router.Get("/v1/auth/privilege/page", controllers.GetSysPrivilegePage)
+	router.Get("/v1/auth/privilege/domain/page", controllers.GetPrivilegeDomainPage)
+	router.Get("/v1/auth/privilege/role/page", controllers.GetPrivilegeRolePage)
 }

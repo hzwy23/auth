@@ -4,14 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 	"github.com/tealeg/xlsx"
 )
 
@@ -39,13 +38,8 @@ var HandleLogsCtl = &handleLogsController{}
 //     description: success
 //   '404':
 //     description: page not found
-func (this *handleLogsController) Page(ctx *context.Context) {
+func (this *handleLogsController) Page(ctx router.Context) {
 	ctx.Request.ParseForm()
-
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	rst, err := groupcache.GetStaticFile("AsofdateHandleLogPage")
 	if err != nil {
@@ -75,23 +69,16 @@ func (this *handleLogsController) Page(ctx *context.Context) {
 //     description: Insufficient permissions
 //   '421':
 //     description: query logs information failed.
-func (this handleLogsController) Download(ctx *context.Context) {
+func (this handleLogsController) Download(ctx router.Context) {
 	ctx.Request.ParseForm()
 
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
 	ctx.ResponseWriter.Header().Set("Content-Type", "application/vnd.ms-excel")
 
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-		return
-	}
-	rst, err := this.model.Download(jclaim.DomainId)
+	rst, err := this.model.Download()
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_get_failed"))
@@ -113,15 +100,15 @@ func (this handleLogsController) Download(ctx *context.Context) {
 	for _, v := range rst {
 		row := sheet.AddRow()
 		cell1 := row.AddCell()
-		cell1.Value = v.User_id
+		cell1.Value = v.UserId
 		cell1.SetStyle(sheet.Rows[1].Cells[0].GetStyle())
 
 		cell2 := row.AddCell()
-		cell2.Value = v.Handle_time
+		cell2.Value = v.HandleTime
 		cell2.SetStyle(sheet.Rows[1].Cells[1].GetStyle())
 
 		cell3 := row.AddCell()
-		cell3.Value = v.Client_ip
+		cell3.Value = v.ClientIP
 		cell3.SetStyle(sheet.Rows[1].Cells[2].GetStyle())
 
 		cell4 := row.AddCell()
@@ -133,7 +120,7 @@ func (this handleLogsController) Download(ctx *context.Context) {
 		cell5.SetStyle(sheet.Rows[1].Cells[4].GetStyle())
 
 		cell6 := row.AddCell()
-		cell6.Value = v.Status_code
+		cell6.Value = v.StatusCode
 		cell6.SetStyle(sheet.Rows[1].Cells[5].GetStyle())
 
 		cell7 := row.AddCell()
@@ -183,29 +170,14 @@ func (this handleLogsController) Download(ctx *context.Context) {
 //      description: Insufficient permissions
 //   '421':
 //      description: query logs information failed.
-func (this handleLogsController) GetHandleLogs(ctx *context.Context) {
+func (this handleLogsController) GetHandleLogs(ctx router.Context) {
 	ctx.Request.ParseForm()
-
-	// Check the user permissions
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	// Get form data from client request.
 	offset := ctx.Request.FormValue("offset")
 	limit := ctx.Request.FormValue("limit")
 
-	// Get user connection information from cookie.
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-		return
-	}
-
-	rst, total, err := this.model.Get(jclaim.DomainId, offset, limit)
+	rst, total, err := this.model.Get(offset, limit)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_query_failed"))
@@ -259,36 +231,24 @@ func (this handleLogsController) GetHandleLogs(ctx *context.Context) {
 //     description: Insufficient permissions
 //   '421':
 //     description: query logs information failed.
-func (this handleLogsController) SerachLogs(ctx *context.Context) {
+func (this handleLogsController) SerachLogs(ctx router.Context) {
 	ctx.Request.ParseForm()
-
-	// Check the user permissions
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
 	// Get form data from request.
 	userid := ctx.Request.FormValue("UserId")
 	start := ctx.Request.FormValue("StartDate")
 	end := ctx.Request.FormValue("EndDate")
+	offset := ctx.Request.FormValue("offset")
+	limit := ctx.Request.FormValue("limit")
 
-	// get user connection information from cookie
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-		return
-	}
-
-	rst, err := this.model.Search(jclaim.DomainId, userid, start, end)
+	rst, cnt, err := this.model.Search(userid, start, end, offset, limit)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_query_failed"))
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+
+	hret.BootstrapTableJson(ctx.ResponseWriter, cnt, rst)
 }
 
 func init() {

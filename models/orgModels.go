@@ -2,34 +2,20 @@ package models
 
 import (
 	"errors"
-	"net/url"
 
-	"github.com/asofdate/sso-jwt-auth/utils"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
+	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/validator"
 )
 
 type OrgModel struct {
 }
 
-type SysOrgInfo struct {
-	Org_unit_id    string `json:"org_id"`
-	Org_unit_desc  string `json:"org_desc"`
-	Up_org_id      string `json:"up_org_id"`
-	Domain_id      string `json:"domain_id"`
-	Create_date    string `json:"create_date"`
-	Maintance_date string `json:"modify_date"`
-	Create_user    string `json:"create_user"`
-	Maintance_user string `json:"modify_user"`
-	Code_number    string `json:"code_number"`
-	Org_dept       string `json:"org_dept,omitempty"`
-}
-
 //获取域下边所有机构号
-func (OrgModel) Get(domain_id string) ([]SysOrgInfo, error) {
-	var rst []SysOrgInfo
-	rows, err := dbobj.Query(sys_rdbms_041, domain_id)
+func (this *OrgModel) Get() ([]entity.SysOrgInfo, error) {
+	var rst []entity.SysOrgInfo
+	rows, err := dbobj.Query(sys_rdbms_041)
 	if err != nil {
 		return nil, err
 	}
@@ -41,30 +27,37 @@ func (OrgModel) Get(domain_id string) ([]SysOrgInfo, error) {
 	return rst, nil
 }
 
-func (this OrgModel) Delete(mjs []SysOrgInfo, domain_id string) (string, error) {
+// 查询某个机构的详细信息
+func (this *OrgModel) GetDetails(orgUnitId string) (entity.SysOrgInfo, error) {
+	var row entity.SysOrgInfo
+	err := dbobj.QueryForStruct(sys_rdbms_054, &row, orgUnitId)
+	return row, err
+}
+
+func (this *OrgModel) Delete(orgUnitId string) (string, error) {
 	tx, err := dbobj.Begin()
 	if err != nil {
 		logger.Error(err)
 		return "error_sql_begin", errors.New("error_sql_begin")
 	}
 
-	for _, val := range mjs {
-		// 获取这个机构的所有下属机构信息
-		sublist, err := this.GetSubOrgInfo(domain_id, val.Org_unit_id)
+	// 获取这个机构的所有下属机构信息
+	sublist, err := this.GetSubOrgInfo(orgUnitId)
+	if err != nil {
+		logger.Error(err)
+		tx.Rollback()
+		return "error_org_sub_query", errors.New("error_org_sub_query")
+	}
+
+	for _, org := range sublist {
+		_, err := tx.Exec(sys_rdbms_044, org.OrgUnitId)
 		if err != nil {
 			logger.Error(err)
 			tx.Rollback()
-			return "error_org_sub_query", errors.New("error_org_sub_query")
-		}
-		for _, org := range sublist {
-			_, err := tx.Exec(sys_rdbms_044, org.Org_unit_id, domain_id)
-			if err != nil {
-				logger.Error(err)
-				tx.Rollback()
-				return "error_org_delete", errors.New("error_org_delete")
-			}
+			return "error_org_delete", errors.New("error_org_delete")
 		}
 	}
+
 	err = tx.Commit()
 	if err != nil {
 		logger.Error(err)
@@ -73,43 +66,34 @@ func (this OrgModel) Delete(mjs []SysOrgInfo, domain_id string) (string, error) 
 	return "success", nil
 }
 
-func (this OrgModel) Update(data url.Values, user_id string) (string, error) {
-	org_unit_id := data.Get("Id")
-	org_unit_desc := data.Get("Org_unit_desc")
-	up_org_id := data.Get("Up_org_id")
+func (this *OrgModel) Update(row entity.SysOrgInfo, user_id string) (string, error) {
 
-	domain_id, err := utils.SplitDomain(org_unit_id)
-	if err != nil {
-		logger.Error(err)
-		return "as_of_date_no_separator", errors.New("as_of_date_no_separator")
-	}
-
-	if !validator.IsWord(org_unit_id) {
+	if !validator.IsWord(row.OrgUnitId) {
 		return "error_org_id_format", errors.New("error_org_id_format")
 	}
 
 	// 校验输入信息
-	if validator.IsEmpty(org_unit_desc) {
+	if validator.IsEmpty(row.OrgUnitDesc) {
 		return "error_org_id_desc_empty", errors.New("error_org_id_desc_empty")
 	}
 
-	if !validator.IsWord(up_org_id) {
+	if !validator.IsWord(row.UpOrgId) {
 		return "error_org_up_id_empty", errors.New("error_org_up_id_empty")
 	}
 
-	check, err := this.GetSubOrgInfo(domain_id, org_unit_id)
+	check, err := this.GetSubOrgInfo(row.OrgUnitId)
 	if err != nil {
 		logger.Error(err)
 		return "error_org_sub_query", errors.New("error_org_sub_query")
 	}
 
 	for _, val := range check {
-		if val.Org_unit_id == up_org_id {
+		if val.OrgUnitId == row.UpOrgId {
 			return "error_org_up_id_complex", errors.New("error_org_up_id_complex")
 		}
 	}
 
-	_, err = dbobj.Exec(sys_rdbms_069, org_unit_desc, up_org_id, user_id, org_unit_id)
+	_, err = dbobj.Exec(sys_rdbms_069, row.OrgUnitDesc, row.UpOrgId, user_id, row.OrgUnitId)
 	if err != nil {
 		logger.Error(err)
 		return "error_org_modify", err
@@ -117,32 +101,21 @@ func (this OrgModel) Update(data url.Values, user_id string) (string, error) {
 	return "success", nil
 }
 
-func (OrgModel) Post(data url.Values, user_id string) (string, error) {
+func (this *OrgModel) Post(arg entity.SysOrgInfo, user_id string) (string, error) {
 
-	code_number := data.Get("Org_unit_id")
-	org_unit_desc := data.Get("Org_unit_desc")
-	up_org_id := data.Get("Up_org_id")
-	domain_id := data.Get("Domain_id")
-
-	org_unit_id := utils.JoinCode(domain_id, code_number)
-
-	if !validator.IsAlnum(code_number) {
+	if !validator.IsAlnum(arg.OrgUnitId) {
 		return "error_org_id_format", errors.New("error_org_id_format")
 	}
 
-	if validator.IsEmpty(org_unit_desc) {
+	if validator.IsEmpty(arg.OrgUnitDesc) {
 		return "error_org_id_desc_empty", errors.New("error_org_id_desc_empty")
 	}
 
-	if !validator.IsWord(domain_id) {
-		return "as_of_date_domain_id_check", errors.New("as_of_date_domain_id_check")
-	}
-
-	if !validator.IsWord(up_org_id) {
+	if !validator.IsWord(arg.UpOrgId) {
 		return "error_org_up_id_empty", errors.New("error_org_up_id_empty")
 	}
 
-	_, err := dbobj.Exec(sys_rdbms_043, code_number, org_unit_desc, up_org_id, domain_id, user_id, user_id, org_unit_id)
+	_, err := dbobj.Exec(sys_rdbms_043, arg.OrgUnitDesc, arg.UpOrgId, user_id, user_id, arg.OrgUnitId)
 	if err != nil {
 		logger.Error(err)
 		return "error_org_add", errors.New("error_org_add")
@@ -150,10 +123,10 @@ func (OrgModel) Post(data url.Values, user_id string) (string, error) {
 	return "success", nil
 }
 
-func (this OrgModel) GetSubOrgInfo(domain_id string, org_id string) ([]SysOrgInfo, error) {
-	var rst []SysOrgInfo
+func (this *OrgModel) GetSubOrgInfo(org_id string) ([]entity.SysOrgInfo, error) {
+	var rst []entity.SysOrgInfo
 
-	all, err := this.Get(domain_id)
+	all, err := this.Get()
 	if err != nil {
 		logger.Error(err)
 		return nil, err
@@ -161,7 +134,7 @@ func (this OrgModel) GetSubOrgInfo(domain_id string, org_id string) ([]SysOrgInf
 
 	// 将自身机构加入到结果中.
 	for _, val := range all {
-		if val.Org_unit_id == org_id {
+		if val.OrgUnitId == org_id {
 			rst = append(rst, val)
 			break
 		}
@@ -172,20 +145,20 @@ func (this OrgModel) GetSubOrgInfo(domain_id string, org_id string) ([]SysOrgInf
 	return rst, nil
 }
 
-func (this OrgModel) dfs(node []SysOrgInfo, org_id string, rst *[]SysOrgInfo) {
+func (this *OrgModel) dfs(node []entity.SysOrgInfo, org_id string, rst *[]entity.SysOrgInfo) {
 	for _, val := range node {
-		if val.Up_org_id == org_id {
+		if val.UpOrgId == org_id {
 			*rst = append(*rst, val)
-			if val.Org_unit_id == val.Up_org_id {
+			if val.OrgUnitId == val.UpOrgId {
 				logger.Error("当前机构与上级机构编码一致,逻辑错误,退出递归")
 				return
 			}
-			this.dfs(node, val.Org_unit_id, rst)
+			this.dfs(node, val.OrgUnitId, rst)
 		}
 	}
 }
 
-func (this OrgModel) Upload(data []SysOrgInfo) (string, error) {
+func (this *OrgModel) Upload(data []entity.SysOrgInfo) (string, error) {
 	tx, err := dbobj.Begin()
 	if err != nil {
 		logger.Error(err)
@@ -193,31 +166,26 @@ func (this OrgModel) Upload(data []SysOrgInfo) (string, error) {
 	}
 
 	for _, val := range data {
-		if !validator.IsAlnum(val.Code_number) {
+		if !validator.IsAlnum(val.OrgUnitId) {
 			tx.Rollback()
 			return "error_org_id_format", errors.New("机构编码必须由1-30位字母,数字组成")
 		}
 
-		if validator.IsEmpty(val.Org_unit_desc) {
+		if validator.IsEmpty(val.OrgUnitDesc) {
 			tx.Rollback()
 			return "error_org_id_desc_empty", errors.New("error_org_id_desc_empty")
 		}
 
-		if validator.IsEmpty(val.Up_org_id) {
+		if validator.IsEmpty(val.UpOrgId) {
 			tx.Rollback()
 			return "error_org_up_id_empty", errors.New("error_org_up_id_empty")
 		}
 
-		if !validator.IsAlnum(val.Domain_id) {
-			tx.Rollback()
-			return "as_of_date_domain_id_check", errors.New("as_of_date_domain_id_check")
-		}
-
-		_, err = tx.Exec(sys_rdbms_043, val.Code_number, val.Org_unit_desc, val.Up_org_id, val.Domain_id, val.Create_user, val.Create_user, val.Org_unit_id)
+		_, err = tx.Exec(sys_rdbms_043, val.OrgUnitDesc, val.UpOrgId, val.CreateUser, val.CreateUser, val.OrgUnitId)
 		if err != nil {
 			logger.Error(err)
 			tx.Rollback()
-			return "error_org_upload", errors.New("上传机构信息失败,机构号是:" + val.Code_number + ",机构名称是:" + val.Org_unit_desc)
+			return "error_org_upload", errors.New("上传机构信息失败,机构号是:" + val.OrgUnitId + ",机构名称是:" + val.OrgUnitDesc)
 		}
 	}
 	err = tx.Commit()

@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
 	"github.com/golang/groupcache"
+	"github.com/hzwy23/utils/logger"
 )
 
 // 这个包提供了缓存静态文件的方法

@@ -5,37 +5,20 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/asofdate/sso-jwt-auth/utils"
-	"github.com/asofdate/sso-jwt-auth/utils/crypto/haes"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
+	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
+	"github.com/hzwy23/utils/crypto/haes"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/validator"
 )
 
 type UserModel struct {
 	morg OrgModel
 }
 
-type UserInfo struct {
-	User_id             string `json:"user_id"`
-	User_name           string `json:"user_name"`
-	User_status_desc    string `json:"status_desc"`
-	User_create_date    string `json:"create_date"`
-	User_owner          string `json:"create_user"`
-	User_email          string `json:"user_email"`
-	User_phone          string `json:"user_phone"`
-	Org_unit_id         string `json:"org_unit_id"`
-	Org_unit_desc       string `json:"org_unit_desc"`
-	Domain_id           string `json:"domain_id"`
-	Domain_name         string `json:"domain_name"`
-	User_maintance_date string `json:"modify_date"`
-	User_maintance_user string `json:"modify_user"`
-	User_status_id      string `json:"status_cd"`
-}
-
 // 查询用户自己的详细信息
-func (UserModel) GetOwnerDetails(user_id string) ([]UserInfo, error) {
-	var rst []UserInfo
+func (UserModel) GetOwnerDetails(user_id string) ([]entity.UserInfo, error) {
+	var rst []entity.UserInfo
 	row, err := dbobj.Query(sys_rdbms_023, user_id)
 	defer row.Close()
 	if err != nil {
@@ -47,85 +30,49 @@ func (UserModel) GetOwnerDetails(user_id string) ([]UserInfo, error) {
 }
 
 // 查询域中所有的用户信息
-func (UserModel) GetDefault(domain_id string) ([]UserInfo, error) {
-	row, err := dbobj.Query(sys_rdbms_017, domain_id)
+func (UserModel) GetDefault() ([]entity.UserInfo, error) {
+	row, err := dbobj.Query(sys_rdbms_017)
 	defer row.Close()
 	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
-	var rst []UserInfo
+	var rst []entity.UserInfo
 	err = dbobj.Scan(row, &rst)
 	return rst, err
 }
 
 // 新增用户信息
-func (UserModel) Post(data url.Values, user_id string) (string, error) {
-	userId := data.Get("userId")
-	userDesc := data.Get("userDesc")
-	password := data.Get("userPasswd")
-	surepassword := data.Get("userPasswdConfirm")
-	userStatus := data.Get("userStatus")
-	userEmail := data.Get("userEmail")
-	userPhone := data.Get("userPhone")
-	userOrgUnitId := data.Get("userOrgUnitId")
-	domain_id := data.Get("domainId")
+func (UserModel) Post(arg entity.UserInfo, userPasswd string) (string, error) {
 
-	if !validator.IsWord(userId) {
+	if !validator.IsWord(arg.UserId) {
 		return "error_user_id_check", errors.New("error_user_id_check")
 	}
 	//
 
-	if validator.IsEmpty(userDesc) {
+	if validator.IsEmpty(arg.UserName) {
 		return "error_user_name_check", errors.New("error_user_name_check")
 	}
 
-	if validator.IsEmpty(password) {
-		return "error_user_passwd_check", errors.New("error_user_passwd_check")
-	}
-
-	if validator.IsEmpty(surepassword) {
-		return "error_passwd_empty", errors.New("error_passwd_empty")
-	}
-
-	if password != surepassword {
-		return "error_passwd_confirm_failed", errors.New("error_passwd_confirm_failed")
-	}
-
-	if len(strings.TrimSpace(password)) < 6 {
-		return "error_passwd_short", errors.New("error_passwd_short")
-	}
-
-	userPasswd, err := haes.Encrypt(password)
-	if err != nil {
-		logger.Error(err)
-		return "error_user_passwd_encrypt", errors.New("error_user_passwd_encrypt")
-	}
-
 	//
-	if !validator.IsEmail(userEmail) {
+	if !validator.IsEmail(arg.UserEmail) {
 		return "error_user_email_check", errors.New("error_user_email_check")
 	}
 
-	if !validator.IsWord(userOrgUnitId) {
+	if validator.IsEmpty(arg.OrgUnitId) {
 		return "error_user_role_org", errors.New("error_user_role_org")
 	}
 
 	//
-	if !validator.IsMobilePhone(userPhone) {
+	if !validator.IsMobilePhone(arg.UserPhone) {
 		return "error_user_phone_check", errors.New("error_user_phone_check")
-	}
-
-	org_domain_id, _ := utils.SplitDomain(userOrgUnitId)
-	if domain_id != org_domain_id {
-		return "error_user_org_format", errors.New("error_user_org_format")
 	}
 
 	tx, err := dbobj.Begin()
 	// insert user details
 	//
-	_, err = tx.Exec(sys_rdbms_018, userId, userDesc, user_id, userEmail, userPhone, userOrgUnitId, user_id)
+	_, err = tx.Exec(sys_rdbms_018, arg.UserId, arg.UserName, arg.UserOwner, arg.UserEmail, arg.UserPhone, arg.OrgUnitId, arg.UserOwner)
 	if err != nil {
 		tx.Rollback()
 		logger.Error(err)
@@ -133,7 +80,7 @@ func (UserModel) Post(data url.Values, user_id string) (string, error) {
 	}
 
 	// insert user passwd
-	_, err = tx.Exec(sys_rdbms_019, userId, userPasswd, userStatus)
+	_, err = tx.Exec(sys_rdbms_019, arg.UserId, userPasswd, arg.UserStatusId)
 	if err != nil {
 		tx.Rollback()
 		logger.Error(err)
@@ -141,7 +88,7 @@ func (UserModel) Post(data url.Values, user_id string) (string, error) {
 	}
 
 	// insert theme info
-	_, err = tx.Exec(sys_rdbms_045, userId, "1001")
+	_, err = tx.Exec(sys_rdbms_045, arg.UserId, "1005")
 	if err != nil {
 		tx.Rollback()
 		logger.Error(err.Error())
@@ -157,14 +104,14 @@ func (UserModel) Post(data url.Values, user_id string) (string, error) {
 }
 
 // 删除用户信息
-func (UserModel) Delete(data []UserInfo) (string, error) {
+func (UserModel) Delete(data []entity.UserInfo) (string, error) {
 	tx, err := dbobj.Begin()
 	if err != nil {
 		return "error_sql_begin", err
 	}
 
 	for _, val := range data {
-		_, err = tx.Exec(sys_rdbms_007, val.User_id, val.Org_unit_id)
+		_, err = tx.Exec(sys_rdbms_007, val.UserId, val.OrgUnitId)
 		if err != nil {
 			tx.Rollback()
 			logger.Error(err)
@@ -181,10 +128,10 @@ func (UserModel) Delete(data []UserInfo) (string, error) {
 }
 
 // 搜索用户信息
-func (this UserModel) Search(org_id string, status_id string, domain_id string) ([]UserInfo, error) {
-	var rst []UserInfo
+func (this UserModel) Search(org_id string, status_id string) ([]entity.UserInfo, error) {
+	var rst []entity.UserInfo
 
-	ret, err := this.GetDefault(domain_id)
+	ret, err := this.GetDefault()
 	if err != nil {
 		logger.Error(err)
 		return nil, err
@@ -192,7 +139,7 @@ func (this UserModel) Search(org_id string, status_id string, domain_id string) 
 
 	if !validator.IsEmpty(org_id) {
 
-		orglist, err := this.morg.GetSubOrgInfo(domain_id, org_id)
+		orglist, err := this.morg.GetSubOrgInfo(org_id)
 		if err != nil {
 			logger.Error(err)
 			return nil, err
@@ -200,13 +147,13 @@ func (this UserModel) Search(org_id string, status_id string, domain_id string) 
 
 		var orgmap map[string]string = make(map[string]string)
 		for _, val := range orglist {
-			orgmap[val.Org_unit_id] = ""
+			orgmap[val.OrgUnitId] = ""
 		}
 
 		for _, val := range ret {
-			if _, ok := orgmap[val.Org_unit_id]; ok {
+			if _, ok := orgmap[val.OrgUnitId]; ok {
 				if !validator.IsEmpty(status_id) {
-					if val.User_status_id == status_id {
+					if val.UserStatusId == status_id {
 						rst = append(rst, val)
 					}
 				} else {
@@ -217,7 +164,7 @@ func (this UserModel) Search(org_id string, status_id string, domain_id string) 
 	} else {
 		for _, val := range ret {
 			if !validator.IsEmpty(status_id) {
-				if val.User_status_id == status_id {
+				if val.UserStatusId == status_id {
 					rst = append(rst, val)
 				}
 			} else {
@@ -261,6 +208,13 @@ func (this UserModel) ModifyPasswd(data url.Values) (string, error) {
 		return "error_user_modify_passwd", err
 	}
 	return "success", nil
+}
+
+// 查询机构编码
+func (this UserModel) GetOrgId(userId string) (string, error) {
+	var orgId string
+	err := dbobj.QueryForObject(sys_rdbms_010, dbobj.PackArgs(userId), &orgId)
+	return orgId, err
 }
 
 // 修改用户信息

@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/router"
 )
 
 // swagger:operation GET / StaticFiles IndexPage
@@ -22,7 +22,7 @@ import (
 // responses:
 //   '200':
 //     description: all domain information
-func IndexPage(ctx *context.Context) {
+func IndexPage(ctx router.Context) {
 	rst, err := groupcache.GetStaticFile("AsofdateIndexPage")
 	if err != nil {
 		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
@@ -32,5 +32,5 @@ func IndexPage(ctx *context.Context) {
 }
 
 func init() {
-	groupcache.RegisterStaticFile("AsofdateIndexPage", "./views/login.tpl")
+	groupcache.RegisterStaticFile("AsofdateIndexPage", "./views/hauth/login.tpl")
 }

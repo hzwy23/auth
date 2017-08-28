@@ -1,21 +1,33 @@
 package models
 
 import (
-	"github.com/asofdate/sso-jwt-auth/utils"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
+	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/logger"
 )
 
 type UserRolesModel struct {
 	User_id     string `json:"user_id"`
 	Role_id     string `json:"role_id"`
-	Code_number string `json:"code_number"`
 	Role_name   string `json:"role_name"`
 	Role_status string `json:"role_status"`
 }
 
+func (this *UserRolesModel) GetOtherUsersByRoleId(roleId string) ([]entity.UserRoleData, error) {
+	var rst []entity.UserRoleData
+	err := dbobj.QueryForSlice(sys_rdbms_088, &rst, roleId, roleId)
+	return rst, err
+}
+
+func (this *UserRolesModel) GetRelationUsersByRoleId(roleId string) ([]entity.UserRoleData, error) {
+	var rst []entity.UserRoleData
+	err := dbobj.QueryForSlice(sys_rdbms_099, &rst, roleId)
+	return rst, err
+}
+
 // 根据用户id,获取这个用户已经拥有的角色
-func (UserRolesModel) GetRolesByUser(user_id string) ([]UserRolesModel, error) {
+func (this *UserRolesModel) GetRolesByUser(user_id string) ([]UserRolesModel, error) {
 	rows, err := dbobj.Query(sys_rdbms_094, user_id)
 	if err != nil {
 		logger.Error(err)
@@ -27,7 +39,7 @@ func (UserRolesModel) GetRolesByUser(user_id string) ([]UserRolesModel, error) {
 }
 
 // 获取这个用户id,还没有获取的角色信息
-func (UserRolesModel) GetOtherRoles(user_id string) ([]UserRolesModel, error) {
+func (this *UserRolesModel) GetOtherRoles(user_id string) ([]UserRolesModel, error) {
 	rows, err := dbobj.Query(sys_rdbms_095, user_id)
 	if err != nil {
 		logger.Error(err)
@@ -35,11 +47,12 @@ func (UserRolesModel) GetOtherRoles(user_id string) ([]UserRolesModel, error) {
 	}
 	var rst []UserRolesModel
 	err = dbobj.Scan(rows, &rst)
+
 	return rst, err
 }
 
 // 对这个域中的用户进行授权
-func (UserRolesModel) Auth(data []UserRolesModel, user_id string) (string, error) {
+func (this *UserRolesModel) Auth(data []UserRolesModel, user_id string) (string, error) {
 
 	tx, err := dbobj.Begin()
 	if err != nil {
@@ -63,7 +76,7 @@ func (UserRolesModel) Auth(data []UserRolesModel, user_id string) (string, error
 }
 
 // 移除这个用户拥有的角色信息
-func (UserRolesModel) Revoke(rst []UserRolesModel) (string, error) {
+func (this *UserRolesModel) Revoke(rst []UserRolesModel) (string, error) {
 	tx, err := dbobj.Begin()
 	if err != nil {
 		return "error_sql_begin", err

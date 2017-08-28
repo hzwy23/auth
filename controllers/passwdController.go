@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/crypto/haes"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/utils/crypto/haes"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 type passwdController struct {
@@ -55,7 +55,7 @@ var PasswdController = &passwdController{
 // responses:
 //   '200':
 //     description: all domain information
-func (this passwdController) PostModifyPasswd(ctx *context.Context) {
+func (this passwdController) PostModifyPasswd(ctx router.Context) {
 	ctx.Request.ParseForm()
 
 	oriPasswd := ctx.Request.FormValue("orapasswd")

@@ -1,24 +1,27 @@
 package models
 
 import (
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
+	"sync"
+
+	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/logger"
 )
 
 type RoleAndResourceModel struct {
 	mres ResourceModel
+	lock sync.RWMutex
 }
 
-type RoleResourceRelData struct {
-	Role_id string `json:"role_id"`
-	Res_id  string `json:"res_id"`
-}
+func (this RoleAndResourceModel) Delete(role_id string, resSlick []string) error {
+	this.lock.Lock()
+	defer this.lock.Unlock()
 
-func (this RoleAndResourceModel) Delete(role_id, res_id string) error {
-
-	var rst []ResData
-	var load []ResData
-	rst = append(rst, ResData{Res_id: res_id})
+	var mp = make(map[string]bool)
+	for _, val := range resSlick {
+		mp[val] = true
+	}
 
 	// 获取已经拥有的角色
 	all, err := this.Get(role_id)
@@ -27,118 +30,105 @@ func (this RoleAndResourceModel) Delete(role_id, res_id string) error {
 		return err
 	}
 
-	//获取第一层子节点
-	tmp := this.search(rst, all)
-	load = append(load, tmp...)
-	for tmp != nil {
-		tep := this.search(tmp, all)
-		if tep == nil {
-			break
-		} else {
-			load = append(load, tep...)
-			tmp = tep
-		}
-	}
-	load = append(load, rst...)
-
 	tx, err := dbobj.Begin()
 	if err != nil {
 		logger.Error(err)
 		return err
 	}
-	for _, val := range load {
-		_, err = tx.Exec(sys_rdbms_093, role_id, val.Res_id)
-		if err != nil {
-			logger.Error(err)
-			tx.Rollback()
-			return err
+
+	for _, val := range resSlick {
+		var rst []entity.ResData
+		this.dfs(all, val, &rst)
+		if len(rst) == 0 {
+			_, err = tx.Exec(sys_rdbms_093, role_id, val)
+			if err != nil {
+				logger.Error(err)
+				tx.Rollback()
+				return err
+			}
+		} else {
+			var flag = true
+			for _, s := range rst {
+				if _, yes := mp[s.ResId]; !yes {
+					flag = false
+					break
+				}
+			}
+			if flag {
+				_, err = tx.Exec(sys_rdbms_093, role_id, val)
+				if err != nil {
+					logger.Error(err)
+					tx.Rollback()
+					return err
+				}
+			}
 		}
 	}
 	return tx.Commit()
 }
 
-func (this RoleAndResourceModel) Post(role_id, res_id string) error {
-
-	var load []ResData
-	var rst map[string]ResData = make(map[string]ResData)
-	var row []ResData
-
+func (this RoleAndResourceModel) Post(role_id string, resSlick []string) error {
+	this.lock.Lock()
+	defer this.lock.Unlock()
 	// 获取所有资源
 	all, err := this.mres.Get()
 	if err != nil {
 		logger.Error(err)
 		return err
 	}
-	for _, val := range all {
-		if val.Res_id == res_id {
-			rst[res_id] = val
-			row = append(row, val)
-			break
-		}
-	}
 
-	// 修复差异项父节点
-	tmp := this.searchParent(rst, all)
-	for len(tmp) != 0 {
-		for _, val := range tmp {
-			rst[val.Res_id] = val
-		}
-		tmp = this.searchParent(rst, all)
-	}
-	for _, val := range rst {
-		load = append(load, val)
-	}
-
-	// 获取子菜单
-	//获取第一层子节点
-	tmp = this.search(row, all)
-	load = append(load, tmp...)
-	for tmp != nil {
-		tep := this.search(tmp, all)
-		if tep == nil {
-			break
-		} else {
-			load = append(load, tep...)
-			tmp = tep
-		}
-	}
-
+	// 获取这个角色已经拥有的资源
 	getted, err := this.Get(role_id)
 	if err != nil {
 		logger.Error(err)
 		return err
 	}
-	var diff map[string]ResData = make(map[string]ResData)
 
-	for _, val := range load {
-		diff[val.Res_id] = val
-	}
-
+	var mp = make(map[string]bool)
 	for _, val := range getted {
-		if v, ok := diff[val.Res_id]; ok {
-			delete(diff, v.Res_id)
-		}
+		mp[val.ResId] = true
 	}
+
 	tx, err := dbobj.Begin()
 	if err != nil {
 		logger.Error(err)
 		return err
 	}
-	for _, val := range diff {
-		_, err = tx.Exec(sys_rdbms_074, role_id, val.Res_id)
-		if err != nil {
-			logger.Error(err)
-			tx.Rollback()
-			return err
+
+	for _, val := range resSlick {
+		var rst []entity.ResData
+		this.parent(all, val, &rst)
+		if len(rst) == 0 {
+			if _, yes := mp[val]; !yes {
+				mp[val] = true
+				_, err = tx.Exec(sys_rdbms_074, utils.JoinCode(role_id, val), role_id, val)
+				if err != nil {
+					logger.Error(err)
+					tx.Rollback()
+					return err
+				}
+			}
+		} else {
+			for _, s := range rst {
+				if _, yes := mp[s.ResId]; !yes {
+					mp[s.ResId] = true
+					_, err = tx.Exec(sys_rdbms_074, utils.JoinCode(role_id, s.ResId), role_id, s.ResId)
+					if err != nil {
+						logger.Error(err)
+						tx.Rollback()
+						return err
+					}
+				}
+			}
 		}
 	}
 	return tx.Commit()
 }
 
 // 查询没有获取到的资源信息
-func (this RoleAndResourceModel) UnGetted(role_id string) ([]ResData, error) {
+func (this RoleAndResourceModel) UnGetted(role_id string) ([]entity.ResData, error) {
 
-	var rst []ResData
+	var rst []entity.ResData
 
 	// 获取角色已经拥有了的资源id
 	role_res, err := this.get(role_id)
@@ -154,20 +144,20 @@ func (this RoleAndResourceModel) UnGetted(role_id string) ([]ResData, error) {
 		return nil, err
 	}
 
-	var diff = make(map[string]ResData)
+	var diff = make(map[string]entity.ResData)
 	for _, val := range rst_res {
-		diff[val.Res_id] = val
+		diff[val.ResId] = val
 	}
 
 	for _, val := range role_res {
-		delete(diff, val.Res_id)
+		delete(diff, val.ResId)
 	}
 
 	// 修复差异项父节点
 	tmp := this.searchParent(diff, rst_res)
 	for len(tmp) != 0 {
 		for _, val := range tmp {
-			diff[val.Res_id] = val
+			diff[val.ResId] = val
 		}
 		tmp = this.searchParent(diff, rst_res)
 	}
@@ -178,9 +168,9 @@ func (this RoleAndResourceModel) UnGetted(role_id string) ([]ResData, error) {
 }
 
 // 查询角色已经拥有的资源信息
-func (this RoleAndResourceModel) Get(role_id string) ([]ResData, error) {
+func (this RoleAndResourceModel) Get(role_id string) ([]entity.ResData, error) {
 
-	var rst []ResData
+	var rst []entity.ResData
 
 	role_res, err := this.get(role_id)
 	if err != nil {
@@ -196,11 +186,11 @@ func (this RoleAndResourceModel) Get(role_id string) ([]ResData, error) {
 
 	for _, val := range role_res {
 		for _, res := range rst_res {
-			if val.Res_id == res.Res_id {
-				var one ResData
-				one.Res_id = res.Res_id
-				one.Res_name = res.Res_name
-				one.Res_up_id = res.Res_up_id
+			if val.ResId == res.ResId {
+				var one entity.ResData
+				one.ResId = res.ResId
+				one.ResName = res.ResName
+				one.ResUpid = res.ResUpid
 				rst = append(rst, one)
 				break
 			}
@@ -210,9 +200,9 @@ func (this RoleAndResourceModel) Get(role_id string) ([]ResData, error) {
 }
 
 // 获取某些角色,指定资源的所有下级资源
-func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]ResData, error) {
+func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]entity.ResData, error) {
 
-	var rst []ResData
+	var rst []entity.ResData
 	var role_res map[string]string = make(map[string]string)
 	for _, val := range roles {
 		tmp, err := this.get(val)
@@ -221,11 +211,11 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]ResDa
 			return nil, err
 		}
 		for _, p := range tmp {
-			role_res[p.Res_id] = ""
+			role_res[p.ResId] = ""
 		}
 	}
 
-	var rst_res []ResData
+	var rst_res []entity.ResData
 	if len(res_id) == 1 {
 		var err error
 		rst_res, err = this.mres.GetChildren(res_id[0])
@@ -240,7 +230,7 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]ResDa
 			return nil, err
 		}
 		for _, val := range tmp {
-			if val.Res_type == res_id[1] {
+			if val.Restype == res_id[1] {
 				rst_res = append(rst_res, val)
 			}
 		}
@@ -254,26 +244,39 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]ResDa
 	}
 
 	for _, res := range rst_res {
-		if _, ok := role_res[res.Res_id]; ok {
-			var one ResData
-			one.Res_id = res.Res_id
-			one.Res_name = res.Res_name
-			one.Res_up_id = res.Res_up_id
-			one.Inner_flag = res.Inner_flag
+		if _, ok := role_res[res.ResId]; ok {
+			var one entity.ResData
+			one.ResId = res.ResId
+			one.ResName = res.ResName
+			one.ResUpid = res.ResUpid
+			one.InnerFlag = res.InnerFlag
+			one.Restype = res.Restype
+			one.ResAttr = res.ResAttr
+			one.ServiceCd = res.ServiceCd
 			rst = append(rst, one)
 		}
 	}
-
 	return rst, nil
 }
 
+func (this RoleAndResourceModel) parent(all []entity.ResData, resId string, ret *[]entity.ResData) {
+	for _, val := range all {
+		if val.ResId == resId {
+			*ret = append(*ret, val)
+			if val.ResUpid != val.ResId {
+				this.parent(all, val.ResUpid, ret)
+			}
+		}
+	}
+}
+
 // 查找所有的父级资源信息
-func (this RoleAndResourceModel) searchParent(diff map[string]ResData, all []ResData) []ResData {
-	var ret []ResData
+func (this RoleAndResourceModel) searchParent(diff map[string]entity.ResData, all []entity.ResData) []entity.ResData {
+	var ret []entity.ResData
 	for _, val := range diff {
-		if _, ok := diff[val.Res_up_id]; !ok {
+		if _, ok := diff[val.ResUpid]; !ok {
 			for _, vl := range all {
-				if vl.Res_id == val.Res_up_id {
+				if vl.ResId == val.ResUpid {
 					ret = append(ret, vl)
 				}
 			}
@@ -282,22 +285,21 @@ func (this RoleAndResourceModel) searchParent(diff map[string]ResData, all []Res
 	return ret
 }
 
-func (this RoleAndResourceModel) search(rst, all []ResData) []ResData {
-	var tmp []ResData
+func (this RoleAndResourceModel) dfs(rst []entity.ResData, resId string, ret *[]entity.ResData) {
 	for _, val := range rst {
-		for _, v := range all {
-			if val.Res_id == v.Res_up_id {
-				tmp = append(tmp, v)
+		if resId == val.ResUpid {
+			*ret = append(*ret, val)
+			if val.ResId != val.ResUpid {
+				this.dfs(rst, val.ResId, ret)
 			}
 		}
 	}
-	return tmp
 }
 
 // 获取指定角色拥有的资源ID列表
-func (this RoleAndResourceModel) get(role_id string) ([]RoleResourceRelData, error) {
+func (this RoleAndResourceModel) get(role_id string) ([]entity.RoleResourceRelData, error) {
 
-	var rst []RoleResourceRelData
+	var rst []entity.RoleResourceRelData
 	rows, err := dbobj.Query(sys_rdbms_100, role_id)
 	if err != nil {
 		logger.Error(err)
@@ -311,4 +313,18 @@ func (this RoleAndResourceModel) get(role_id string) ([]RoleResourceRelData, err
 	}
 
 	return rst, nil
+}
+
+func (this RoleAndResourceModel) CheckUrlAuth(userId string, url string) bool {
+	cnt := 0
+	err := dbobj.QueryRow(sys_rdbms_098, userId, url).Scan(&cnt)
+	if err != nil {
+		logger.Error(err)
+		return false
+	}
+	if cnt == 0 {
+		logger.Error("insufficient privileges", "user id is :", userId, "api is :", url)
+		return false
+	}
+	return true
 }

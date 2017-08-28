@@ -1,28 +1,38 @@
 package models
 
 import (
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
+	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/validator"
 )
 
 type HandleLogMode struct {
 }
 
-type handleLogs struct {
-	Uuid        string `json:"uuid"`
-	User_id     string `json:"user_id"`
-	Handle_time string `json:"handle_time" dateType:"YYYY-MM-DD HH24:MM:SS"`
-	Client_ip   string `json:"client_ip"`
-	Status_code string `json:"status_code"`
-	Method      string `json:"method"`
-	Url         string `json:"url"`
-	Data        string `json:"data"`
+func (this *HandleLogMode) Post(log_buf []entity.HandleLogBuf) {
+	tx, err := dbobj.Begin()
+	if err != nil {
+		logger.Error(err)
+	}
+
+	for _, val := range log_buf {
+		_, err := tx.Exec(sys_rdbms_051, val.User_id, val.Client_ip, val.Ret_status, val.Req_method, val.Req_url, val.Req_body)
+		if err != nil {
+			tx.Rollback()
+			logger.Error("同步日志信息到数据库失败")
+			return
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("同步日志信息到数据库失败")
+	}
 }
 
-func (this HandleLogMode) Download(domain_id string) ([]handleLogs, error) {
-	var rst []handleLogs
-	rows, err := dbobj.Query(sys_rdbms_012, domain_id)
+func (this HandleLogMode) Download() ([]entity.HandleLogs, error) {
+	var rst []entity.HandleLogs
+	rows, err := dbobj.Query(sys_rdbms_012)
 	if err != nil {
 		logger.Error(err)
 		return rst, err
@@ -35,14 +45,14 @@ func (this HandleLogMode) Download(domain_id string) ([]handleLogs, error) {
 	return rst, nil
 }
 
-func (this HandleLogMode) getTotal(domain_id string) (total int64, err error) {
-	err = dbobj.QueryRow(sys_rdbms_030, domain_id).Scan(&total)
+func (this HandleLogMode) getTotal() (total int64, err error) {
+	err = dbobj.QueryRow(sys_rdbms_030).Scan(&total)
 	return
 }
 
-func (this HandleLogMode) Get(domain_id, offset, limit string) ([]handleLogs, int64, error) {
-	var rst []handleLogs
-	rows, err := dbobj.Query(sys_rdbms_029, domain_id, offset, limit)
+func (this HandleLogMode) Get(offset, limit string) ([]entity.HandleLogs, int64, error) {
+	var rst []entity.HandleLogs
+	rows, err := dbobj.Query(sys_rdbms_029, offset, limit)
 	if err != nil {
 		logger.Error(err)
 		return nil, 0, err
@@ -52,7 +62,7 @@ func (this HandleLogMode) Get(domain_id, offset, limit string) ([]handleLogs, in
 		logger.Error(err)
 		return nil, 0, err
 	}
-	total, err := this.getTotal(domain_id)
+	total, err := this.getTotal()
 	if err != nil {
 		logger.Error(err)
 		return nil, 0, err
@@ -60,105 +70,127 @@ func (this HandleLogMode) Get(domain_id, offset, limit string) ([]handleLogs, in
 	return rst, total, nil
 }
 
-func (this HandleLogMode) Search(domain_id, userid, start, end string) ([]handleLogs, error) {
-	var rst []handleLogs
-	if userid != "" && validator.IsDate(start) && validator.IsDate(end) {
-		rows, err := dbobj.Query(sys_rdbms_031, domain_id, userid, start, end)
+func (this HandleLogMode) Search(userid, start, end, offset, limit string) ([]entity.HandleLogs, int64, error) {
+	var rst []entity.HandleLogs
+	var cnt int64 = 0
+	if len(userid) != 0 && validator.IsDate(start) && validator.IsDate(end) {
+		rows, err := dbobj.Query(sys_rdbms_031, userid, start, end, offset, limit)
 		defer rows.Close()
 		if err != nil {
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
-	} else if userid != "" && validator.IsDate(start) {
+		dbobj.QueryForObject(sys_rdbms_034, dbobj.PackArgs(userid, start, end), &cnt)
 
-		rows, err := dbobj.Query(sys_rdbms_032, domain_id, userid, start)
-		defer rows.Close()
-		if err != nil {
-			logger.Error(err)
-			return nil, err
-		}
-		err = dbobj.Scan(rows, &rst)
-		if err != nil {
-			logger.Error(err)
-			return nil, err
-		}
-	} else if userid != "" && validator.IsDate(end) {
+	} else if len(userid) != 0 && validator.IsDate(start) {
 
-		rows, err := dbobj.Query(sys_rdbms_031, domain_id, userid, start, end)
+		rows, err := dbobj.Query(sys_rdbms_032, userid, start, offset, limit)
 		defer rows.Close()
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
+		dbobj.QueryForObject(sys_rdbms_083, dbobj.PackArgs(userid, start), &cnt)
+
+	} else if len(userid) != 0 && validator.IsDate(end) {
+
+		rows, err := dbobj.Query(sys_rdbms_031, userid, start, end, offset, limit)
+		defer rows.Close()
+		if err != nil {
+			logger.Error(err)
+			return nil, cnt, err
+		}
+		err = dbobj.Scan(rows, &rst)
+		if err != nil {
+			logger.Error(err)
+			return nil, cnt, err
+		}
+
+		dbobj.QueryForObject(sys_rdbms_034, dbobj.PackArgs(userid, start, end), &cnt)
+
 	} else if validator.IsDate(start) && validator.IsDate(end) {
-		rows, err := dbobj.Query(sys_rdbms_033, domain_id, start, end)
+		rows, err := dbobj.Query(sys_rdbms_033, start, end, offset, limit)
 		defer rows.Close()
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
+
+		dbobj.QueryForObject(sys_rdbms_086, dbobj.PackArgs(start, end), &cnt)
+
 	} else if validator.IsDate(start) {
-		rows, err := dbobj.Query(sys_rdbms_035, domain_id, start, end)
+		rows, err := dbobj.Query(sys_rdbms_035, start, offset, limit)
 		defer rows.Close()
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
+
+		dbobj.QueryForObject(sys_rdbms_087, dbobj.PackArgs(start), &cnt)
+
 	} else if validator.IsDate(end) {
-		rows, err := dbobj.Query(sys_rdbms_039, domain_id, start, end)
+		rows, err := dbobj.Query(sys_rdbms_039, end, offset, limit)
 		defer rows.Close()
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
-	} else if userid != "" {
-		rows, err := dbobj.Query(sys_rdbms_040, domain_id, userid)
+
+		dbobj.QueryForObject(sys_rdbms_003, dbobj.PackArgs(end), &cnt)
+	} else if len(userid) != 0 {
+		rows, err := dbobj.Query(sys_rdbms_040, userid, offset, limit)
 		defer rows.Close()
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
+
+		dbobj.QueryForObject(sys_rdbms_001, dbobj.PackArgs(userid), &cnt)
+
 	} else {
-		rows, err := dbobj.Query(sys_rdbms_042, domain_id)
+		rows, err := dbobj.Query(sys_rdbms_042, offset, limit)
 		defer rows.Close()
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
 		err = dbobj.Scan(rows, &rst)
 		if err != nil {
 			logger.Error(err)
-			return nil, err
+			return nil, cnt, err
 		}
+
+		dbobj.QueryForObject(sys_rdbms_106, dbobj.PackArgs(), &cnt)
+
 	}
-	return rst, nil
+	return rst, cnt, nil
 }

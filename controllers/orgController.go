@@ -1,21 +1,20 @@
 package controllers
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/entity"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 	"github.com/tealeg/xlsx"
 )
 
@@ -44,9 +43,9 @@ var OrgCtl = &orgController{
 // responses:
 //   '200':
 //     description: success
-func (orgController) Page(ctx *context.Context) {
+func (orgController) Page(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -81,31 +80,10 @@ func (orgController) Page(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Get(ctx *context.Context) {
+func (this orgController) Get(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
-	domain_id := ctx.Request.FormValue("domain_id")
-	if validator.IsEmpty(domain_id) {
-		cookie, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cookie.Value)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-			return
-		}
-		domain_id = jclaim.DomainId
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "r") {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied"))
-		return
-	}
-
-	rst, err := this.models.Get(domain_id)
+	rst, err := this.models.Get()
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 417, i18n.Get(ctx.Request, "error_query_org_info"))
@@ -142,39 +120,12 @@ func (this orgController) Get(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Delete(ctx *context.Context) {
+func (this orgController) Delete(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
-	domain_id := ctx.Request.FormValue("domain_id")
+	orgUnitId := ctx.Request.FormValue("orgUnitId")
 
-	var mjs []models.SysOrgInfo
-	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &mjs)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_delete_org_info"), err)
-		return
-	}
-
-	if validator.IsEmpty(domain_id) {
-		cok, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cok.Value)
-		if err != nil {
-			hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-			return
-		}
-		domain_id = jclaim.DomainId
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied_modify"))
-		return
-	}
-
-	msg, err := this.models.Delete(mjs, domain_id)
+	msg, err := this.models.Delete(orgUnitId)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 418, i18n.Get(ctx.Request, msg), err)
@@ -206,37 +157,24 @@ func (this orgController) Delete(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Update(ctx *context.Context) {
+func (this orgController) Update(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+	var arg entity.SysOrgInfo
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 421, err.Error())
 		return
 	}
 
-	form := ctx.Request.Form
-	org_unit_id := form.Get("Id")
-
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
 
-	domain_id, err := utils.SplitDomain(org_unit_id)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.NoSeparator(ctx.Request, org_unit_id))
-		return
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied_modify"))
-		return
-	}
-
-	msg, err := this.models.Update(form, jclaim.UserId)
+	msg, err := this.models.Update(arg, jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
@@ -285,30 +223,23 @@ func (this orgController) Update(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Post(ctx *context.Context) {
+func (this orgController) Post(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+	var arg entity.SysOrgInfo
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, err.Error())
 		return
 	}
-	form := ctx.Request.Form
-
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
 
-	domain_id := form.Get("Domain_id")
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "w") {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied_modify"))
-		return
-	}
-
-	msg, err := this.models.Post(form, jclaim.UserId)
+	msg, err := this.models.Post(arg, jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
@@ -345,18 +276,12 @@ func (this orgController) Post(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) GetSubOrgInfo(ctx *context.Context) {
+func (this orgController) GetSubOrgInfo(ctx router.Context) {
 	ctx.Request.ParseForm()
 
 	org_unit_id := ctx.Request.FormValue("org_unit_id")
-	did, err := utils.SplitDomain(org_unit_id)
-	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.NoSeparator(ctx.Request, org_unit_id))
-		return
-	}
 
-	rst, err := this.models.GetSubOrgInfo(did, org_unit_id)
+	rst, err := this.models.GetSubOrgInfo(org_unit_id)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_org_sub_query"))
@@ -388,33 +313,16 @@ func (this orgController) GetSubOrgInfo(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Download(ctx *context.Context) {
+func (this orgController) Download(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
 
 	ctx.ResponseWriter.Header().Set("Content-Type", "application/vnd.ms-excel")
-	domain_id := ctx.Request.FormValue("domain_id")
 
-	if validator.IsEmpty(domain_id) {
-		cookie, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cookie.Value)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-			return
-		}
-		domain_id = jclaim.DomainId
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "r") {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied"))
-		return
-	}
-
-	rst, err := this.models.Get(domain_id)
+	rst, err := this.models.Get()
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 417, i18n.Get(ctx.Request, "error_query_org_info"))
@@ -463,35 +371,31 @@ func (this orgController) Download(ctx *context.Context) {
 	for _, v := range rst {
 		row := sheet.AddRow()
 		cell1 := row.AddCell()
-		cell1.Value = v.Code_number
+		cell1.Value = v.OrgUnitId
 		cell1.SetStyle(sheet.Rows[1].Cells[0].GetStyle())
 
 		cell2 := row.AddCell()
-		cell2.Value = v.Org_unit_desc
+		cell2.Value = v.OrgUnitDesc
 		cell2.SetStyle(sheet.Rows[1].Cells[1].GetStyle())
 
 		cell3 := row.AddCell()
-		cell3.Value, _ = utils.SplitCode(v.Up_org_id)
+		cell3.Value, _ = utils.SplitCode(v.UpOrgId)
 		cell3.SetStyle(sheet.Rows[1].Cells[2].GetStyle())
 
-		cell9 := row.AddCell()
-		cell9.Value = v.Domain_id
-		cell9.SetStyle(sheet.Rows[1].Cells[3].GetStyle())
-
 		cell5 := row.AddCell()
-		cell5.Value = v.Create_date
+		cell5.Value = v.CreateDate
 		cell5.SetStyle(sheet.Rows[1].Cells[4].GetStyle())
 
 		cell6 := row.AddCell()
-		cell6.Value = v.Create_user
+		cell6.Value = v.CreateUser
 		cell6.SetStyle(sheet.Rows[1].Cells[5].GetStyle())
 
 		cell7 := row.AddCell()
-		cell7.Value = v.Maintance_date
+		cell7.Value = v.MaintanceDate
 		cell7.SetStyle(sheet.Rows[1].Cells[6].GetStyle())
 
 		cell8 := row.AddCell()
-		cell8.Value = v.Maintance_user
+		cell8.Value = v.MaintanceUser
 		cell8.SetStyle(sheet.Rows[1].Cells[7].GetStyle())
 
 	}
@@ -527,7 +431,7 @@ func (this orgController) Download(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Upload(ctx *context.Context) {
+func (this orgController) Upload(ctx router.Context) {
 	if len(this.upload) != 0 {
 		hret.Success(ctx.ResponseWriter, i18n.Get(ctx.Request, "error_org_upload_wait"))
 		return
@@ -571,26 +475,20 @@ func (this orgController) Upload(ctx *context.Context) {
 		return
 	}
 
-	var data []models.SysOrgInfo
+	var data []entity.SysOrgInfo
 	for index, val := range sheet.Rows {
 		if index > 0 {
-			var one models.SysOrgInfo
-			one.Code_number = val.Cells[0].Value
-			one.Org_unit_desc = val.Cells[1].Value
-			one.Domain_id = val.Cells[3].Value
-			one.Org_unit_id = utils.JoinCode(one.Domain_id, one.Code_number)
-			one.Up_org_id = utils.JoinCode(one.Domain_id, val.Cells[2].Value)
-			one.Create_user = jclaim.UserId
+			var one entity.SysOrgInfo
+			one.OrgUnitId = val.Cells[0].Value
+			one.OrgUnitDesc = val.Cells[1].Value
+			one.UpOrgId = val.Cells[2].Value
+			one.CreateUser = jclaim.UserId
 
-			if one.Org_unit_id == one.Up_org_id {
+			if one.OrgUnitId == one.UpOrgId {
 				hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_up_org_equal_org_id"))
 				return
 			}
 
-			if !hrpc.DomainAuth(ctx.Request, one.Domain_id, "w") {
-				hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied_modify"))
-				return
-			}
 			data = append(data, one)
 		}
 	}
@@ -602,6 +500,25 @@ func (this orgController) Upload(ctx *context.Context) {
 		return
 	}
 	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+}
+
+// 查询某个机构的详细信息
+func (this orgController) GetDetails(ctx router.Context) {
+	ctx.Request.ParseForm()
+
+	orgUnitId := ctx.Request.FormValue("orgUnitId")
+	if len(orgUnitId) == 0 {
+		logger.Error("机构号为空")
+		hret.Error(ctx.ResponseWriter, 421, "机构号为空")
+		return
+	}
+	row, err := this.models.GetDetails(orgUnitId)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		return
+	}
+	hret.Json(ctx.ResponseWriter, row)
 }
 
 func init() {

@@ -1,20 +1,17 @@
 package controllers
 
 import (
-	"github.com/asofdate/sso-core/utils"
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/crypto/sha1"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego/context"
-	"github.com/astaxie/beego/logs"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/utils/crypto/sha1"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 var homePageMenusModel = new(models.HomePageMenusModel)
-var resourceModel = new(models.ResourceModel)
 
 // swagger:operation GET /v1/auth/index/entry StaticFiles SubSystemEntry
 //
@@ -43,18 +40,11 @@ var resourceModel = new(models.ResourceModel)
 //     description: disconnect, please login.
 //   '404':
 //     description: page not found
-func SubSystemEntry(ctx *context.Context) {
+func SubSystemEntry(ctx router.Context) {
 	defer hret.HttpPanic()
 
 	ctx.Request.ParseForm()
 	id := ctx.Request.FormValue("Id")
-	innerFlag := ctx.Request.FormValue("innerFlag")
-
-	if innerFlag == "false" {
-		// 使用反向代理，获取子系统首页信息
-		utils.SysIndexReverProxy(ctx)
-		return
-	}
 
 	// get user connection information from cookie.
 	jclaim, err := jwt.GetJwtClaims(ctx.Request)
@@ -120,35 +110,13 @@ func SubSystemEntry(ctx *context.Context) {
 //     description: disconnect
 //   '421':
 //     description: get menu information failed.
-func IndexMenus(ctx *context.Context) {
+func IndexMenus(ctx router.Context) {
 	defer hret.HttpPanic()
 	ctx.Request.ParseForm()
 	form := ctx.Request.Form
 
 	id := form.Get("Id")
 	typeId := form.Get("TypeId")
-
-	// typeId == "1" 表示获取子系统菜单
-	// typeId == "0" 表示获取首页菜单，否也菜单不允许使用方向代理获取
-	// 首页菜单信息，必须配置到SSO系统中
-	if typeId == "1" {
-		// 获取子系统菜单信息
-		// 子系统中菜单交个子系统自行实现
-		// 跳转到子系统中，获取子系统中的菜单信息
-		innerFlag, err := resourceModel.GetInnerFlag(id)
-		if err != nil {
-			logs.Error(err)
-			hret.Error(ctx.ResponseWriter, 404, "查询菜单资源属性失败")
-			return
-		}
-
-		if innerFlag == "false" {
-			// 非内部系统，反向代理获取子系统菜单信息
-			// 子系统菜单格式必须按照规定时限，否则sso系统中的菜单构建函数将会失效
-			utils.SsoSubsystemMenuReverProxy(ctx)
-			return
-		}
-	}
 
 	// get user connection information from cookie
 	cookie, _ := ctx.Request.Cookie("Authorization")
@@ -168,8 +136,11 @@ func IndexMenus(ctx *context.Context) {
 	ctx.ResponseWriter.Write(ojs)
 }
 
-func AllMenusExceptButton(ctx *context.Context) {
+func AllMenusExceptButton(ctx router.Context) {
 	ctx.Request.ParseForm()
+
+	meunId := ctx.Request.FormValue("resId")
+
 	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error("Get user connect info failed. please login again, error info is:", err)
@@ -177,7 +148,7 @@ func AllMenusExceptButton(ctx *context.Context) {
 		return
 	}
 
-	menus, err := homePageMenusModel.GetAllMenusExceptButton(jclaim.UserId)
+	menus, err := homePageMenusModel.GetAllMenusExceptButton(jclaim.UserId, meunId)
 	if err != nil {
 		logger.Error("Get meuns failed. error info is :", err)
 		hret.Error(ctx.ResponseWriter, 403, err.Error())

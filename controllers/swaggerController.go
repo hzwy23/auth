@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/router"
 )
 
 type swaggerController struct {
@@ -28,8 +28,8 @@ var SwaggerCtl = &swaggerController{}
 // responses:
 //   '200':
 //     description: success
-func (this swaggerController) Page(ctx *context.Context) {
-	if !hrpc.BasicAuth(ctx.Request) {
+func (this swaggerController) Page(ctx router.Context) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}

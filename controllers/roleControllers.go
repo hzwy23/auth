@@ -2,17 +2,16 @@ package controllers
 
 import (
 	"encoding/json"
-
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/jwt"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/asofdate/sso-jwt-auth/utils/validator"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/entity"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 type roleController struct {
@@ -45,9 +44,9 @@ var RoleCtl = &roleController{
 // responses:
 //   '200':
 //     description: success
-func (roleController) Page(ctx *context.Context) {
+func (roleController) Page(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -82,32 +81,10 @@ func (roleController) Page(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Get(ctx *context.Context) {
+func (this roleController) Get(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 
-	domain_id := ctx.Request.FormValue("domain_id")
-
-	if validator.IsEmpty(domain_id) {
-		cookie, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cookie.Value)
-		if err != nil {
-			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
-			return
-		}
-		domain_id = jclaim.DomainId
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, domain_id, "r") {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied"))
-		return
-	}
-
-	rst, err := this.models.Get(domain_id)
+	rst, err := this.models.Get()
 
 	if err != nil {
 		logger.Error(err)
@@ -140,29 +117,24 @@ func (this roleController) Get(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Post(ctx *context.Context) {
+func (this roleController) Post(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+
+	var arg entity.RoleInfo
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(ctx.ResponseWriter, 423, err.Error())
 		return
 	}
 
-	form := ctx.Request.Form
-	domainid := form.Get("domain_id")
-	if !hrpc.DomainAuth(ctx.Request, domainid, "w") {
-		logger.Error("没有权限在这个域中新增角色信息")
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied"))
-		return
-	}
-
-	cok, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cok.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
 
-	msg, err := this.models.Post(form, jclaim.UserId)
+	arg.RoleOwner = jclaim.UserId
+	msg, err := this.models.Post(arg)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
@@ -193,26 +165,19 @@ func (this roleController) Post(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Delete(ctx *context.Context) {
+func (this roleController) Delete(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
 
-	var allrole []models.RoleInfo
+	var allrole []entity.RoleInfo
 	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &allrole)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_role_json_failed"), err)
 		return
-	}
-
-	for _, val := range allrole {
-		if !hrpc.DomainAuth(ctx.Request, val.Domain_id, "w") {
-			hret.Error(ctx.ResponseWriter, 403, i18n.WriteDomain(ctx.Request, val.Domain_id))
-			return
-		}
 	}
 
 	msg, err := this.models.Delete(allrole)
@@ -246,36 +211,24 @@ func (this roleController) Delete(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Update(ctx *context.Context) {
+func (this roleController) Update(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
-
-	form := ctx.Request.Form
-	Role_id := form.Get("Role_id")
-
-	did, err := utils.SplitDomain(Role_id)
+	var arg entity.RoleInfo
+	err := utils.ParseForm(ctx.Request, &arg)
 	if err != nil {
-		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, i18n.NoSeparator(ctx.Request, Role_id))
-	}
-
-	if !hrpc.DomainAuth(ctx.Request, did, "w") {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "as_of_date_domain_permission_denied_modify"))
+		logger.Error(ctx.ResponseWriter, 423, err.Error())
 		return
 	}
 
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
 		return
 	}
+	arg.RoleMaintanceUser = jclaim.UserId
 
-	msg, err := this.models.Update(form, jclaim.UserId)
+	msg, err := this.models.Update(arg)
 	if err != nil {
 		logger.Error(err.Error())
 		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)

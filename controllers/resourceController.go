@@ -1,14 +1,15 @@
 package controllers
 
 import (
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/models"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/asofdate/sso-jwt-auth/utils/logger"
-	"github.com/astaxie/beego/context"
-	"github.com/astaxie/beego/logs"
+	"github.com/asofdate/auth-core/entity"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/jwt"
+	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/router"
 )
 
 type resourceController struct {
@@ -16,7 +17,7 @@ type resourceController struct {
 }
 
 var ResourceCtl = &resourceController{
-	new(models.ResourceModel),
+	models: new(models.ResourceModel),
 }
 
 // swagger:operation GET /v1/auth/resource/page StaticFiles domainShareControll
@@ -34,9 +35,9 @@ var ResourceCtl = &resourceController{
 // responses:
 //   '200':
 //     description: all domain information
-func (resourceController) Page(ctx *context.Context) {
+func (resourceController) Page(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -72,9 +73,9 @@ func (resourceController) Page(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Get(ctx *context.Context) {
+func (this resourceController) Get(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -109,7 +110,7 @@ func (this resourceController) Get(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Query(ctx *context.Context) {
+func (this resourceController) Query(ctx router.Context) {
 	ctx.Request.ParseForm()
 	res_id := ctx.Request.FormValue("res_id")
 	rst, err := this.models.Query(res_id)
@@ -136,20 +137,20 @@ func (this resourceController) Query(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Post(ctx *context.Context) {
+func (this resourceController) Post(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
 	form := ctx.Request.Form
 
-	var arg models.ResData
-	arg.Res_type = form.Get("res_type")
-	arg.Res_id = form.Get("res_id")
-	arg.Res_name = form.Get("res_name")
-	arg.Res_up_id = form.Get("res_up_id")
-	arg.Service_cd = form.Get("service_cd")
+	var arg entity.ResData
+	arg.Restype = form.Get("res_type")
+	arg.ResId = form.Get("res_id")
+	arg.ResName = form.Get("res_name")
+	arg.ResUpid = form.Get("res_up_id")
+	arg.ServiceCd = form.Get("service_cd")
 
 	msg, err := this.models.Post(arg)
 	if err != nil {
@@ -182,9 +183,9 @@ func (this resourceController) Post(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Delete(ctx *context.Context) {
+func (this resourceController) Delete(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
@@ -230,18 +231,18 @@ func (this resourceController) Delete(ctx *context.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Update(ctx *context.Context) {
+func (this resourceController) Update(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
-	var arg models.ResData
+	var arg entity.ResData
 
-	arg.Res_id = ctx.Request.FormValue("res_id")
-	arg.Res_name = ctx.Request.FormValue("res_name")
-	arg.Res_up_id = ctx.Request.FormValue("res_up_id")
-	arg.Service_cd = ctx.Request.FormValue("service_cd")
+	arg.ResId = ctx.Request.FormValue("res_id")
+	arg.ResName = ctx.Request.FormValue("res_name")
+	arg.ResUpid = ctx.Request.FormValue("res_up_id")
+	arg.ServiceCd = ctx.Request.FormValue("service_cd")
 
 	msg, err := this.models.Update(arg)
 	if err != nil {
@@ -252,13 +253,28 @@ func (this resourceController) Update(ctx *context.Context) {
 	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
 }
 
-func (this *resourceController) GetNodes(ctx *context.Context) {
-	ctx.Request.ParseForm()
-	resId := ctx.Request.FormValue("resId")
-	rst, err := this.models.GetNodes(resId)
+func (this *resourceController) GetNodes(ctx router.Context) {
+	rst, err := this.models.GetNodes()
 	if err != nil {
-		logs.Error(err)
+		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 423, "查询菜单信息失败，请联系管理员", err)
+		return
+	}
+	hret.Json(ctx.ResponseWriter, rst)
+}
+
+func (this *resourceController) GetSubsystemList(ctx router.Context) {
+	claim, err := jwt.GetJwtClaims(ctx.Request)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		return
+	}
+
+	rst, err := this.models.GetSubsystem(claim.UserId)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, "查询子模块失败，请联系管理员")
 		return
 	}
 	hret.Json(ctx.ResponseWriter, rst)

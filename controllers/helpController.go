@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/asofdate/sso-jwt-auth/groupcache"
-	"github.com/asofdate/sso-jwt-auth/hrpc"
-	"github.com/asofdate/sso-jwt-auth/utils/hret"
-	"github.com/asofdate/sso-jwt-auth/utils/i18n"
-	"github.com/astaxie/beego/context"
+	"github.com/asofdate/auth-core/groupcache"
+	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/utils/hret"
+	"github.com/hzwy23/utils/i18n"
+	"github.com/hzwy23/utils/router"
 )
 
 type helpController struct {
@@ -28,10 +28,10 @@ var HelpCtl = &helpController{}
 // responses:
 //   '200':
 //     description: all domain information
-func (this helpController) Page(ctx *context.Context) {
+func (this helpController) Page(ctx router.Context) {
 	ctx.Request.ParseForm()
 
-	if !hrpc.BasicAuth(ctx.Request) {
+	if !service.BasicAuth(ctx.Request) {
 		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
 		return
 	}
