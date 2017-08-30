@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"html/template"
 
 	"github.com/asofdate/auth-core/models"
 	"github.com/asofdate/auth-core/service"
@@ -58,8 +57,13 @@ func (this roleAndResourceController) ResourcePage(ctx router.Context) {
 		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_resource_query"))
 		return
 	}
-	file, _ := template.ParseFiles("./views/hauth/res_role_rel_page.tpl")
 
+	file, err := service.ParseFile(ctx, "./views/hauth/res_role_rel_page.tpl")
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 423, i18n.Get(ctx.Request, "error_role_resource_query"))
+		return
+	}
 	file.Execute(ctx.ResponseWriter, rst)
 }
 

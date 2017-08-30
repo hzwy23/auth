@@ -7,6 +7,7 @@ import (
 	"github.com/asofdate/auth-core/entity"
 	"github.com/asofdate/auth-core/groupcache"
 	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/crypto/haes"
 	"github.com/hzwy23/utils/hret"
@@ -39,14 +40,18 @@ var UserCtl = &userController{}
 //   '200':
 //     description: success
 func (userController) Page(ctx router.Context) {
-	ctx.Request.ParseForm()
 
 	rst, err := groupcache.GetStaticFile("AsofdasteUserPage")
 	if err != nil {
 		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
 		return
 	}
-	ctx.ResponseWriter.Write(rst)
+	hz, err := service.ParseText(ctx, string(rst))
+	if err != nil {
+		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		return
+	}
+	hz.Execute(ctx.ResponseWriter, nil)
 }
 
 // swagger:operation GET /v1/auth/user/get userController userController

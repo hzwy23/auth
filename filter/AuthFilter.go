@@ -13,12 +13,14 @@ func AuthFilter() {
 }
 
 func init() {
-	// 设置白名单
+	// 设置白名单，免认证请求
 	service.AddConnUrl("/")
 	service.AddConnUrl("/login")
-	service.AddAuthUrl("/HomePage")
 
-	/// 设置白名单
+	/// 设置白名单，免授权请求
+	service.AddAuthUrl("/HomePage")
 	service.AddAuthUrl("/v1/auth/main/menu")
+	service.AddAuthUrl("/v1/auth/index/entry")
+	service.AddAuthUrl("/v1/auth/privilege/user/domain")
 	service.AddAuthUrl("/v1/auth/menu/all/except/button")
 }

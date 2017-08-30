@@ -5,6 +5,7 @@ import (
 
 	"github.com/asofdate/auth-core/groupcache"
 	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
 	"github.com/hzwy23/utils/logger"
@@ -22,7 +23,14 @@ func GetServiceManagePage(ctx router.Context) {
 		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
 		return
 	}
-	ctx.ResponseWriter.Write(rst)
+
+	hz, err := service.ParseText(ctx, string(rst))
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
+		return
+	}
+	hz.Execute(ctx.ResponseWriter, nil)
 }
 
 // 查询功能服务

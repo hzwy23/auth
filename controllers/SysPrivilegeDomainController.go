@@ -1,10 +1,9 @@
 package controllers
 
 import (
-	"html/template"
-
 	"github.com/asofdate/auth-core/entity"
 	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
@@ -21,7 +20,7 @@ type SysPrivilegeDomainController struct {
 
 // 查询权限与域关联关系
 func GetPrivilegeDomainPage(ctx router.Context) {
-	tpl, _ := template.ParseFiles("./views/hauth/sysPrivilegeDomain.tpl")
+	tpl, _ := service.ParseFile(ctx, "./views/hauth/sysPrivilegeDomain.tpl")
 	privilegeId := ctx.Request.FormValue("privilegeId")
 	tpl.Execute(ctx.ResponseWriter, privilegeId)
 }

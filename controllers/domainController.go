@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+
 	"github.com/asofdate/auth-core/entity"
 	"github.com/asofdate/auth-core/groupcache"
 	"github.com/asofdate/auth-core/models"
@@ -48,8 +49,13 @@ func (this *domainController) Page(ctx router.Context) {
 		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
 		return
 	}
+	hz, err := service.ParseText(ctx, string(rst))
+	if err != nil {
+		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
+		return
+	}
 
-	ctx.ResponseWriter.Write(rst)
+	hz.Execute(ctx.ResponseWriter, nil)
 }
 
 // swagger:operation GET /v1/auth/domain/get domainController getDomainInfo

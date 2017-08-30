@@ -55,7 +55,13 @@ func (orgController) Page(ctx router.Context) {
 		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
 		return
 	}
-	ctx.ResponseWriter.Write(rst)
+
+	hz, err := service.ParseText(ctx, string(rst))
+	if err != nil {
+		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		return
+	}
+	hz.Execute(ctx.ResponseWriter, nil)
 }
 
 // swagger:operation GET /v1/auth/resource/org/get orgController orgController

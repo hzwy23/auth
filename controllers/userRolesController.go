@@ -2,10 +2,10 @@ package controllers
 
 import (
 	"encoding/json"
-	"html/template"
 
 	"github.com/asofdate/auth-core/groupcache"
 	"github.com/asofdate/auth-core/models"
+	"github.com/asofdate/auth-core/service"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
 	"github.com/hzwy23/utils/jwt"
@@ -52,7 +52,12 @@ func (this *userRolesController) Page(ctx router.Context) {
 		return
 	}
 
-	ctx.ResponseWriter.Write(rst)
+	hz, err := service.ParseText(ctx, string(rst))
+	if err != nil {
+		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
+		return
+	}
+	hz.Execute(ctx.ResponseWriter, nil)
 }
 
 func (this *userRolesController) UserPage(ctx router.Context) {
@@ -69,7 +74,7 @@ func (this *userRolesController) UserPage(ctx router.Context) {
 		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_resource_query"))
 		return
 	}
-	file, _ := template.ParseFiles("./views/hauth/role_user.tpl")
+	file, _ := service.ParseFile(ctx, "./views/hauth/role_user.tpl")
 
 	file.Execute(ctx.ResponseWriter, rst)
 

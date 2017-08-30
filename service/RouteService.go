@@ -11,3 +11,7 @@ type RouteServiceImpl struct {
 func (this *RouteServiceImpl) CheckUrlAuth(userId string, url string) bool {
 	return this.role.CheckUrlAuth(userId, url)
 }
+
+func (this *RouteServiceImpl) CheckResIDAuth(userId string, resId string) bool {
+	return this.role.CheckResIDAuth(userId, resId)
+}

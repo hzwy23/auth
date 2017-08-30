@@ -14,7 +14,7 @@ type RoleAndResourceModel struct {
 	lock sync.RWMutex
 }
 
-func (this RoleAndResourceModel) Delete(role_id string, resSlick []string) error {
+func (this *RoleAndResourceModel) Delete(role_id string, resSlick []string) error {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 
@@ -67,7 +67,7 @@ func (this RoleAndResourceModel) Delete(role_id string, resSlick []string) error
 	return tx.Commit()
 }
 
-func (this RoleAndResourceModel) Post(role_id string, resSlick []string) error {
+func (this *RoleAndResourceModel) Post(role_id string, resSlick []string) error {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 	// 获取所有资源
@@ -126,7 +126,7 @@ func (this RoleAndResourceModel) Post(role_id string, resSlick []string) error {
 }
 
 // 查询没有获取到的资源信息
-func (this RoleAndResourceModel) UnGetted(role_id string) ([]entity.ResData, error) {
+func (this *RoleAndResourceModel) UnGetted(role_id string) ([]entity.ResData, error) {
 
 	var rst []entity.ResData
 
@@ -200,7 +200,7 @@ func (this RoleAndResourceModel) Get(role_id string) ([]entity.ResData, error) {
 }
 
 // 获取某些角色,指定资源的所有下级资源
-func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]entity.ResData, error) {
+func (this *RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]entity.ResData, error) {
 
 	var rst []entity.ResData
 	var role_res map[string]string = make(map[string]string)
@@ -259,7 +259,7 @@ func (this RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]entit
 	return rst, nil
 }
 
-func (this RoleAndResourceModel) parent(all []entity.ResData, resId string, ret *[]entity.ResData) {
+func (this *RoleAndResourceModel) parent(all []entity.ResData, resId string, ret *[]entity.ResData) {
 	for _, val := range all {
 		if val.ResId == resId {
 			*ret = append(*ret, val)
@@ -285,7 +285,7 @@ func (this RoleAndResourceModel) searchParent(diff map[string]entity.ResData, al
 	return ret
 }
 
-func (this RoleAndResourceModel) dfs(rst []entity.ResData, resId string, ret *[]entity.ResData) {
+func (this *RoleAndResourceModel) dfs(rst []entity.ResData, resId string, ret *[]entity.ResData) {
 	for _, val := range rst {
 		if resId == val.ResUpid {
 			*ret = append(*ret, val)
@@ -297,7 +297,7 @@ func (this RoleAndResourceModel) dfs(rst []entity.ResData, resId string, ret *[]
 }
 
 // 获取指定角色拥有的资源ID列表
-func (this RoleAndResourceModel) get(role_id string) ([]entity.RoleResourceRelData, error) {
+func (this *RoleAndResourceModel) get(role_id string) ([]entity.RoleResourceRelData, error) {
 
 	var rst []entity.RoleResourceRelData
 	rows, err := dbobj.Query(sys_rdbms_100, role_id)
@@ -315,16 +315,29 @@ func (this RoleAndResourceModel) get(role_id string) ([]entity.RoleResourceRelDa
 	return rst, nil
 }
 
-func (this RoleAndResourceModel) CheckUrlAuth(userId string, url string) bool {
+func (this *RoleAndResourceModel) CheckResIDAuth(userId string, resId string) bool {
+	cnt := 0
+	err := dbobj.QueryRow(sys_rdbms_108, userId, resId).Scan(&cnt)
+	if err != nil {
+		logger.Error(err)
+		return false
+	}
+	if cnt > 0 {
+		return true
+	}
+	return false
+}
+
+func (this *RoleAndResourceModel) CheckUrlAuth(userId string, url string) bool {
 	cnt := 0
 	err := dbobj.QueryRow(sys_rdbms_098, userId, url).Scan(&cnt)
 	if err != nil {
 		logger.Error(err)
 		return false
 	}
-	if cnt == 0 {
-		logger.Error("insufficient privileges", "user id is :", userId, "api is :", url)
-		return false
+	if cnt > 0 {
+		return true
 	}
-	return true
+	logger.Error("insufficient privileges", "user id is :", userId, "api is :", url)
+	return false
 }

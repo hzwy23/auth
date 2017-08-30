@@ -83,7 +83,7 @@ func (this *BasicAuthFilter) Identify(ctx router.Context) {
 	if _, yes := this.filterConnUrl[ctx.Request.URL.Path]; !yes {
 		if !jwt.CheckToken(ctx.Request) {
 			this.clock.RUnlock()
-			hz, _ := template.ParseFiles("./views/sso/disconnect.tpl")
+			hz, _ := template.ParseFiles("./views/hauth/disconnect.tpl")
 			hz.Execute(ctx.ResponseWriter, nil)
 			ctx.ResponseWriter.Started = true
 			return

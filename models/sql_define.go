@@ -103,4 +103,5 @@ var (
 	sys_rdbms_105 = `update sys_theme_resource set res_url = ?,new_iframe = ?,res_open_type = ?,theme_id = ? where uuid = ?`
 	sys_rdbms_106 = `select count(*) from sys_handle_logs t order by user_id,handle_time desc`
 	sys_rdbms_107 = `select t.domain_id,t.domain_name from sys_domain_define t where  t.domain_status_id = '0' and not exists (select 1 from  sys_privilege_domain d where t.domain_id = d.domain_id and d.privilege_id = ?)`
+	sys_rdbms_108 = `select count(*) from sys_role_user t inner join sys_role_resource e on t.role_id = e.role_id where t.user_id = ? and e.res_id = ?`
 )
