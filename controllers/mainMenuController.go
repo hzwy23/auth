@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/asofdate/auth-core/groupcache"
-	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/auth-core/groupcache"
+	"github.com/hzwy23/auth-core/models"
 	"github.com/hzwy23/utils/crypto/sha1"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"

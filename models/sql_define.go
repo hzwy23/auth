@@ -5,10 +5,10 @@ var (
 	sys_rdbms_002 = `select user_id,user_passwd,status_id,continue_error_cnt from sys_sec_user where user_id = ?`
 	sys_rdbms_003 = `select count(*) from sys_handle_logs t where handle_time < str_to_date(?,'%Y-%m-%d') order by handle_time desc`
 	sys_rdbms_004 = `update sys_sec_user set continue_error_cnt = ? where user_id = ?`
-	sys_rdbms_005 = `update sys_resource_info set res_name = ?, res_up_id = ?, service_cd = ? where res_id = ?`
+	sys_rdbms_005 = `update sys_resource_info set res_name = ?, res_up_id = ?, method = ? where res_id = ?`
 	sys_rdbms_006 = `select count(*) from sys_theme_resource where theme_id = ? and res_id = ?`
 	sys_rdbms_007 = `delete from sys_user_info where user_id = ? and org_unit_id = ?`
-	sys_rdbms_008 = `insert into sys_theme_resource(uuid,theme_id,res_id,res_url,res_open_type,res_bg_color,res_class,group_id,res_img,sort_id,new_iframe) value(uuid(),?,?,?,?,?,?,?,?,?,?)`
+	sys_rdbms_008 = `insert into sys_theme_resource(uuid,theme_id,res_id,res_url,res_open_type,res_bg_color,res_class,group_id,res_img,sort_id,new_iframe) value(?,?,?,?,?,?,?,?,?,?,?)`
 	sys_rdbms_009 = `update sys_theme_resource set res_url = ?, res_bg_color = ?, res_class = ?, res_img = ?, group_id = ?, sort_id = ?, res_open_type = ?, new_iframe = ? where theme_id = ? and res_id = ?`
 	sys_rdbms_010 = `select org_unit_id from sys_user_info where user_id = ?`
 	sys_rdbms_011 = `select distinct t2.res_url from sys_user_theme t1 inner join sys_theme_resource t2 on t1.theme_id = t2.theme_id inner join sys_resource_info t3 on t2.res_id = t3.res_id where t1.user_id = ? and t2.res_id = ? and t3.res_type = '0'`
@@ -47,7 +47,7 @@ var (
 	sys_rdbms_044 = `delete from sys_org_info where org_unit_id = ?`
 	sys_rdbms_045 = `insert into sys_user_theme(user_id,theme_id) values(?,?)`
 	sys_rdbms_046 = `select res_id, res_name ,res_up_id from sys_resource_info where res_attr = '0'`
-	sys_rdbms_047 = `select t.res_id,t.res_name,t.res_attr, a.res_attr_desc,t.res_up_id,t.res_type,r.res_type_desc, t.sys_flag, t.inner_flag from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type where t.res_type <> '2'`
+	sys_rdbms_047 = `select t.res_id,t.res_name,t.res_attr, a.res_attr_desc,t.res_up_id,t.res_type,r.res_type_desc, t.sys_flag, t.method from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type where t.res_type <> '2'`
 	sys_rdbms_048 = `select service_cd from sys_resource_info where res_id = ?`
 	sys_rdbms_049 = `select user_id,privilege_id,role_id,domain_id,permission,role_status_id from v_sys_privilege_user_domain where user_id = ? and domain_id = ?`
 	sys_rdbms_050 = `update sys_role_define t set t.role_name = ? ,t.role_status_id = ?, modify_time = now(), modify_user = ? where t.role_id = ?`
@@ -71,8 +71,8 @@ var (
 	sys_rdbms_068 = `select t.role_id, t.role_name from sys_role_define t where role_status_id = '0' and not exists ( select 1 from sys_privilege_role r where t.role_id = r.role_id and r.privilege_id = ?)`
 	sys_rdbms_069 = `update sys_org_info set org_unit_desc = ? ,up_org_id = ?, maintance_date = now(),maintance_user=? where org_unit_id = ?`
 	sys_rdbms_070 = `select t.theme_id,i.theme_desc,res_id,res_url,res_open_type,res_bg_color,res_class,group_id,res_img,sort_id,t.new_iframe from sys_theme_resource t left join sys_theme_define i on t.theme_id = i.theme_id where t.theme_id = ? and t.res_id = ?`
-	sys_rdbms_071 = `select t.res_id,t.res_name,t.res_attr, a.res_attr_desc,t.res_up_id,t.res_type,r.res_type_desc, t.sys_flag, t.inner_flag, t.service_cd from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type`
-	sys_rdbms_072 = `insert into sys_resource_info(res_id,res_name,res_attr,res_up_id,res_type,inner_flag,service_cd) values(?,?,?,?,?,?,?)`
+	sys_rdbms_071 = `select t.res_id,t.res_name,t.res_attr, a.res_attr_desc,t.res_up_id,t.res_type,r.res_type_desc, t.sys_flag, t.method from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type`
+	sys_rdbms_072 = `insert into sys_resource_info(res_id,res_name,res_attr,res_up_id,res_type,method) values(?,?,?,?,?,?)`
 	sys_rdbms_073 = `delete from sys_resource_info where res_id = ? and res_type = '2'`
 	sys_rdbms_074 = `insert into sys_role_resource(uuid,role_id,res_id) values(?,?,?)`
 	sys_rdbms_075 = `delete from sys_role_resource where res_id = ?`
@@ -87,20 +87,20 @@ var (
 	sys_rdbms_086 = `select count(*) from sys_handle_logs t where handle_time >= str_to_date(?,'%Y-%m-%d') and handle_time < str_to_date(?,'%Y-%m-%d') order by handle_time desc`
 	sys_rdbms_087 = `select count(*) from sys_handle_logs t where handle_time >= str_to_date(?,'%Y-%m-%d') order by handle_time desc`
 	sys_rdbms_088 = `select t.user_id,t.user_name,t.org_unit_id,i.org_unit_desc,? from sys_user_info t inner join sys_org_info i on t.org_unit_id = i.org_unit_id where not exists (select 1 from sys_role_user u where u.role_id = ? and u.user_id = t.user_id)`
-	sys_rdbms_089 = `select t.res_id, t.res_name, t.res_attr, a.res_attr_desc, t.res_up_id, t.res_type, r.res_type_desc, t.sys_flag, t.inner_flag, t.service_cd from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type where res_id = ?`
+	sys_rdbms_089 = `select t.res_id, t.res_name, t.res_attr, a.res_attr_desc, t.res_up_id, t.res_type, r.res_type_desc, t.sys_flag, t.method from sys_resource_info t inner join sys_resource_info_attr a on t.res_attr = a.res_attr inner join sys_resource_type_attr r on t.res_type = r.res_type where res_id = ?`
 	sys_rdbms_093 = `delete from sys_role_resource where role_id = ? and res_id = ?`
 	sys_rdbms_094 = `select r.user_id, t.role_id, t.role_name,t.role_status_id from sys_role_define t inner join sys_role_user r on t.role_id = r.role_id where r.user_id = ? and t.role_status_id = '0'`
 	sys_rdbms_095 = `select '',t.role_id, t.role_name from sys_role_define t where  not exists (select 1 from sys_role_user r where r.user_id = ? and r.role_id = t.role_id)`
 	sys_rdbms_096 = `insert into sys_role_user(uuid,role_id,user_id,create_date,create_user) values(?,?,?,now(),?)`
 	sys_rdbms_097 = `delete from sys_role_user where user_id = ? and role_id = ?`
-	sys_rdbms_098 = `select count(*) from sys_role_user r inner join sys_role_resource e on r.role_id = e.role_id inner join sys_theme_resource v on e.res_id = v.res_id inner join sys_user_theme m on v.theme_id = m.theme_id and r.user_id = m.user_id where r.user_id = ? and v.res_url = ?`
+	sys_rdbms_098 = `select res_id from v_sys_resource_user where user_id = ? and res_url = ? and method = ?`
 	sys_rdbms_099 = `select t.user_id,i.user_name,i.org_unit_id,o.org_unit_desc,t.role_id,t.create_user,t.create_date from sys_role_user t inner join sys_user_info i on t.user_id = i.user_id inner join sys_org_info o on i.org_unit_id = o.org_unit_id where t.role_id = ?`
 	sys_rdbms_100 = `select role_id,res_id from sys_role_resource where role_id = ?`
 	sys_rdbms_101 = `select t.theme_id,i.theme_desc,res_id,res_url,res_open_type,res_bg_color,res_class,group_id,res_img,sort_id,t.new_iframe from sys_theme_resource t inner join sys_theme_define i on t.theme_id = i.theme_id where t.theme_id = ? order by group_id,sort_id asc`
 	sys_rdbms_102 = `select t.user_id,t.theme_id,i.theme_desc from sys_user_theme t inner join sys_theme_define i on t.theme_id = i.theme_id where t.user_id = ?`
-	sys_rdbms_103 = `select t.uuid,t.theme_id,t.res_id,d.res_name,t.res_url,t.res_open_type res_open_type,d.service_cd,d.res_up_id,t.new_iframe from sys_theme_resource t inner join sys_resource_info d on t.res_id = d.res_id where d.res_type = '2' and theme_id = ?`
-	sys_rdbms_104 = `update sys_resource_info set res_name = ?, service_cd = ?, inner_flag = ? where res_id = ?`
-	sys_rdbms_105 = `update sys_theme_resource set res_url = ?,new_iframe = ?,res_open_type = ?,theme_id = ? where uuid = ?`
+	sys_rdbms_103 = `select t.uuid,t.theme_id,t.res_id,d.res_name,t.res_url,t.res_open_type, d.method, d.res_up_id,t.new_iframe from sys_theme_resource t inner join sys_resource_info d on t.res_id = d.res_id where d.res_type = '2'`
+	sys_rdbms_104 = `update sys_resource_info set res_name = ?, method = ? where res_id = ?`
+	sys_rdbms_105 = `update sys_theme_resource set res_url = ?,new_iframe = ?,res_open_type = ? where uuid = ?`
 	sys_rdbms_106 = `select count(*) from sys_handle_logs t order by user_id,handle_time desc`
 	sys_rdbms_107 = `select t.domain_id,t.domain_name from sys_domain_define t where  t.domain_status_id = '0' and not exists (select 1 from  sys_privilege_domain d where t.domain_id = d.domain_id and d.privilege_id = ?)`
 	sys_rdbms_108 = `select count(*) from sys_role_user t inner join sys_role_resource e on t.role_id = e.role_id where t.user_id = ? and e.res_id = ?`

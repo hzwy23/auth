@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"github.com/asofdate/auth-core/groupcache"
+	"github.com/hzwy23/auth-core/groupcache"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
 	"github.com/hzwy23/utils/router"

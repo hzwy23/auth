@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/asofdate/auth-core/entity"
+	"github.com/hzwy23/auth-core/entity"
 	"github.com/hzwy23/dbobj"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/logger"

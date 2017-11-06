@@ -3,11 +3,11 @@ package models
 import (
 	"errors"
 
-	"github.com/asofdate/auth-core/dto"
-	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
 	"github.com/hzwy23/utils/logger"
 	"github.com/hzwy23/utils/validator"
+	"github.com/hzwy23/auth-core/dto"
+	"github.com/hzwy23/auth-core/entity"
 )
 
 type ResourceModel struct {
@@ -83,21 +83,18 @@ func (this *ResourceModel) Query(res_id string) ([]entity.ResData, error) {
 // 新增菜单资源
 func (this *ResourceModel) Post(data entity.ResData) (string, error) {
 	// 如果所属系统非空，表示是内部菜单
-	innnerFlag := "false"
-	if len(data.ServiceCd) == 0 {
-		innnerFlag = "true"
-	}
 
 	// 1 表示叶子
 	// 0 表示结点
 	res_attr := "1"
-	if data.Restype == "0" || data.Restype == "4" {
+	if data.Restype == "0" {
 		res_attr = "0"
+		data.ResUpid = "-1"
 	}
 
-	// 如果是首页子系统菜单，设置上级编码为-1
-	if data.Restype == "0" {
-		data.ResUpid = "-1"
+	if data.Restype == "4" {
+		res_attr = "0"
+		data.Method = ""
 	}
 
 	if !validator.IsWord(data.ResId) {
@@ -123,7 +120,7 @@ func (this *ResourceModel) Post(data entity.ResData) (string, error) {
 	// add sys_resource_info
 	_, err := dbobj.Exec(sys_rdbms_072,
 		data.ResId, data.ResName, res_attr, data.ResUpid,
-		data.Restype, innnerFlag, data.ServiceCd)
+		data.Restype, data.Method)
 
 	if err != nil {
 		logger.Error(err)
@@ -212,12 +209,12 @@ func (this *ResourceModel) Update(arg entity.ResData) (string, error) {
 		}
 	}
 
-	_, err = dbobj.Exec(sys_rdbms_005,
-		arg.ResName,
-		arg.ResUpid,
-		arg.ServiceCd,
-		arg.ResId)
+	// 如果是虚拟节点，清空请求方法
+	if arg.Restype == "4" {
+		arg.Method = ""
+	}
 
+	_, err = dbobj.Exec(sys_rdbms_005, arg.ResName, arg.ResUpid, arg.Method, arg.ResId)
 	if err != nil {
 		logger.Error(err)
 		return "error_resource_update", err

@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/asofdate/auth-core/entity"
-	"github.com/asofdate/auth-core/groupcache"
-	"github.com/asofdate/auth-core/models"
-	"github.com/asofdate/auth-core/service"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/crypto/haes"
 	"github.com/hzwy23/utils/hret"
@@ -16,6 +12,10 @@ import (
 	"github.com/hzwy23/utils/logger"
 	"github.com/hzwy23/utils/router"
 	"github.com/hzwy23/utils/validator"
+	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth-core/groupcache"
+	"github.com/hzwy23/auth-core/models"
+	"github.com/hzwy23/auth-core/service"
 )
 
 type userController struct {
@@ -426,8 +426,7 @@ func (this userController) ModifyStatus(ctx router.Context) {
 //     description: success
 func (this userController) GetUserDetails(ctx router.Context) {
 	ctx.Request.ParseForm()
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(ctx.Request)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(ctx.ResponseWriter, 401, i18n.Disconnect(ctx.Request))

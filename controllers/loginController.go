@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/asofdate/auth-core/models"
-	"github.com/asofdate/auth-core/service"
-	"github.com/asofdate/sso-core/dto"
+	"github.com/hzwy23/auth-core/models"
+	"github.com/hzwy23/auth-core/service"
+	"github.com/hzwy23/sso-core/dto"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/crypto/haes"
 	"github.com/hzwy23/utils/hret"

@@ -9,6 +9,5 @@ type ResData struct {
 	Restype     string `json:"res_type"`
 	ResTypeDesc string `json:"res_type_desc"`
 	SysFlag     string `json:"sys_flag"`
-	InnerFlag   string `json:"inner_flag"`
-	ServiceCd   string `json:"service_cd"`
+	Method      string `json:"method"`
 }

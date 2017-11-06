@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/auth-core/models"
 	"github.com/hzwy23/utils/crypto/haes"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"

@@ -3,7 +3,7 @@ package auth_core
 import (
 	"sync"
 
-	"github.com/asofdate/auth-core/filter"
+	"github.com/hzwy23/auth-core/filter"
 	"github.com/hzwy23/utils/logger"
 	"github.com/hzwy23/utils/router"
 )

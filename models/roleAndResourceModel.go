@@ -3,10 +3,10 @@ package models
 import (
 	"sync"
 
-	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/auth-core/entity"
 )
 
 type RoleAndResourceModel struct {
@@ -249,10 +249,9 @@ func (this *RoleAndResourceModel) Gets(roles []string, res_id ...string) ([]enti
 			one.ResId = res.ResId
 			one.ResName = res.ResName
 			one.ResUpid = res.ResUpid
-			one.InnerFlag = res.InnerFlag
+			one.Method = res.Method
 			one.Restype = res.Restype
 			one.ResAttr = res.ResAttr
-			one.ServiceCd = res.ServiceCd
 			rst = append(rst, one)
 		}
 	}
@@ -328,16 +327,16 @@ func (this *RoleAndResourceModel) CheckResIDAuth(userId string, resId string) bo
 	return false
 }
 
-func (this *RoleAndResourceModel) CheckUrlAuth(userId string, url string) bool {
-	cnt := 0
-	err := dbobj.QueryRow(sys_rdbms_098, userId, url).Scan(&cnt)
+func (this *RoleAndResourceModel) CheckUrlAuth(userId string, url, method string) bool {
+	resId := ""
+	err := dbobj.QueryRow(sys_rdbms_098, userId, url, method).Scan(&resId)
 	if err != nil {
 		logger.Error(err)
 		return false
 	}
-	if cnt > 0 {
+	if len(resId) > 0 {
 		return true
 	}
-	logger.Error("insufficient privileges", "user id is :", userId, "api is :", url)
+	logger.Error("insufficient privileges", "user id is :", userId, "api is :", url, "request method is:", method)
 	return false
 }

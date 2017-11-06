@@ -3,6 +3,7 @@ package models
 import (
 	"github.com/hzwy23/dbobj"
 	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/utils/uuid"
 )
 
 type FuncRoute struct {
@@ -12,7 +13,7 @@ type FuncRoute struct {
 	ResName     string
 	ResUrl      string
 	ResOpenType string
-	ServiceCd   string
+	Method      string
 	ResUpId     string
 	NewIframe   string
 }
@@ -44,10 +45,6 @@ func (this *FuncRoute) Delete(rows []FuncRoute) error {
 
 // 更新功能服务
 func (this *FuncRoute) Update(row FuncRoute) error {
-	innerFlag := "true"
-	if len(row.ServiceCd) != 0 {
-		innerFlag = "false"
-	}
 
 	if len(row.NewIframe) == 0 {
 		row.NewIframe = "false"
@@ -58,8 +55,7 @@ func (this *FuncRoute) Update(row FuncRoute) error {
 		return err
 	}
 	_, err = tx.Exec(sys_rdbms_104,
-		row.ResName, row.ServiceCd,
-		innerFlag, row.ResId,
+		row.ResName, row.Method, row.ResId,
 	)
 	if err != nil {
 		logger.Error(err)
@@ -69,7 +65,7 @@ func (this *FuncRoute) Update(row FuncRoute) error {
 
 	_, err = tx.Exec(sys_rdbms_105,
 		row.ResUrl, row.NewIframe,
-		row.ResOpenType, row.ThemeId, row.Uuid)
+		row.ResOpenType, row.Uuid)
 	if err != nil {
 		logger.Error(err)
 		tx.Rollback()
@@ -81,10 +77,6 @@ func (this *FuncRoute) Update(row FuncRoute) error {
 
 // 新增功能服务
 func (this *FuncRoute) Post(row FuncRoute) error {
-	innerFlag := "true"
-	if len(row.ServiceCd) != 0 {
-		innerFlag = "false"
-	}
 
 	if len(row.NewIframe) == 0 {
 		row.NewIframe = "false"
@@ -98,25 +90,21 @@ func (this *FuncRoute) Post(row FuncRoute) error {
 		row.ResId,
 		row.ResName, "1",
 		row.ResUpId, "2",
-		innerFlag,
-		row.ServiceCd,
+		row.Method,
 	)
 	if err != nil {
-		logger.Error(err)
+		logger.Error("添加功能按钮菜单信息失败，错误信息是：", err)
 		tx.Rollback()
 		return err
 	}
 
-	_, err = tx.Exec(sys_rdbms_008,
-		row.ThemeId, row.ResId, row.ResUrl,
-		row.ResOpenType, "", "", "", "",
-		0, row.NewIframe)
+	_, err = tx.Exec(sys_rdbms_008, uuid.GenUUID(), row.ThemeId, row.ResId, row.ResUrl,
+		row.ResOpenType, "", "", "", "", 0, row.NewIframe)
 	if err != nil {
-		logger.Error(err)
+		logger.Error("添加功能按钮对应的主题配置信息失败，错误信息是：", err)
 		tx.Rollback()
 		return err
 	}
-
 	return tx.Commit()
 }
 
@@ -125,16 +113,15 @@ func (this *FuncRoute) AddTheme(row FuncRoute) error {
 		row.NewIframe = "false"
 	}
 
-	_, err := dbobj.Exec(sys_rdbms_008,
-		row.ThemeId, row.ResId, row.ResUrl,
+	_, err := dbobj.Exec(sys_rdbms_008, uuid.GenUUID(), row.ThemeId, row.ResId, row.ResUrl,
 		row.ResOpenType, "", "", "", "",
 		0, row.NewIframe)
 	return err
 }
 
-func (this *FuncRoute) IsExists(resId string, themeId string) bool {
+func (this *FuncRoute) IsExists(resId string) bool {
 	cnt := -1
-	err := dbobj.QueryRow(sys_rdbms_006, themeId, resId).Scan(&cnt)
+	err := dbobj.QueryRow(sys_rdbms_006, "funcs", resId).Scan(&cnt)
 	if err != nil {
 		return false
 	}
@@ -145,9 +132,9 @@ func (this *FuncRoute) IsExists(resId string, themeId string) bool {
 }
 
 // 查询某一个菜单页面下边所有的功能服务
-func (this *FuncRoute) Get(resId string, themeId string) ([]FuncRoute, error) {
+func (this *FuncRoute) Get(resId string) ([]FuncRoute, error) {
 	var rst []FuncRoute
-	err := dbobj.QueryForSlice(sys_rdbms_103, &rst, themeId)
+	err := dbobj.QueryForSlice(sys_rdbms_103, &rst)
 	if err != nil {
 		logger.Error(err)
 		return nil, err

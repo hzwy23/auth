@@ -63,8 +63,7 @@ func (this *BasicAuthFilter) AddConnUrl(url string) {
 }
 
 func (this *BasicAuthFilter) basicAuth(r *http.Request) bool {
-	cookie, _ := r.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.GetJwtClaims(r)
 	if err != nil {
 		logger.Error(err)
 		return false
@@ -73,7 +72,12 @@ func (this *BasicAuthFilter) basicAuth(r *http.Request) bool {
 		return true
 	}
 
-	return RouteService.CheckUrlAuth(jclaim.UserId, r.URL.Path)
+	method := r.Method
+	if method == http.MethodPost && r.FormValue("_method") == http.MethodDelete {
+		method = http.MethodDelete
+	}
+	logger.Debug("basicAuth,method is:", method, ",path is:", r.URL.Path, ",user is:", jclaim.UserId)
+	return RouteService.CheckUrlAuth(jclaim.UserId, r.URL.Path, method)
 }
 
 // 校验用户权限信息

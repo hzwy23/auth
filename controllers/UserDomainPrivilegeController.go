@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"github.com/asofdate/auth-core/models"
+	"github.com/hzwy23/auth-core/models"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/jwt"
 	"github.com/hzwy23/utils/logger"

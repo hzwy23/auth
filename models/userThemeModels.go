@@ -1,22 +1,16 @@
 package models
 
 import (
-	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/auth-core/entity"
 )
 
 type UserThemeModel struct {
 }
 
-func (this UserThemeModel) Get(user_id string) ([]entity.UserThemeData, error) {
-	var rst []entity.UserThemeData
-	rows, err := dbobj.Query(sys_rdbms_102, user_id)
-	if err != nil {
-		logger.Error(err)
-		return rst, err
-	}
-	err = dbobj.Scan(rows, &rst)
+func (this UserThemeModel) Get(user_id string) (entity.UserThemeData, error) {
+	var rst entity.UserThemeData
+	err := dbobj.QueryForStruct(sys_rdbms_102, &rst, user_id)
 	return rst, err
 }
 

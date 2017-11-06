@@ -11,7 +11,6 @@ type HomePageMenuData struct {
 	Res_up_id     string
 	Res_open_type string
 	New_iframe    string
-	Inner_flag    string
+	Method        string
 	Res_attr      string
-	ServiceCd     string
 }

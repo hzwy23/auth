@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/asofdate/auth-core/entity"
+	"github.com/hzwy23/auth-core/entity"
 	"github.com/hzwy23/dbobj"
 	"github.com/hzwy23/utils/crypto/haes"
 	"github.com/hzwy23/utils/logger"

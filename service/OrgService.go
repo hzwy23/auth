@@ -1,6 +1,6 @@
 package service
 
-import "github.com/asofdate/auth-core/models"
+import "github.com/hzwy23/auth-core/models"
 
 var OrgService = &OrgServiceImpl{}
 

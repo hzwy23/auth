@@ -1,7 +1,7 @@
 package filter
 
 import (
-	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/auth-core/service"
 	"github.com/hzwy23/utils/router"
 )
 

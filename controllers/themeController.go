@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"github.com/asofdate/auth-core/entity"
-	"github.com/asofdate/auth-core/models"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
@@ -10,6 +8,8 @@ import (
 	"github.com/hzwy23/utils/logger"
 	"github.com/hzwy23/utils/router"
 	"github.com/hzwy23/utils/validator"
+	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth-core/models"
 )
 
 type themeController struct {
@@ -83,7 +83,6 @@ func (this *themeController) Post(ctx router.Context) {
 //   '200':
 //     description: success
 func (this themeController) Put(ctx router.Context) {
-
 	var row entity.ThemeData
 	err := utils.ParseForm(ctx.Request, &row)
 	if err != nil {

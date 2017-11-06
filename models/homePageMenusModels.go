@@ -3,10 +3,10 @@ package models
 import (
 	"encoding/json"
 
-	"github.com/asofdate/auth-core/entity"
 	"github.com/hzwy23/dbobj"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/auth-core/entity"
 )
 
 const redirect = `
@@ -34,13 +34,13 @@ func (this *HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
 
 	// 首先获取用户主题信息
 	theme, err := this.mut.Get(useId)
-	if err != nil || len(theme) != 1 {
+	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
 	// 获取这个主题的所有资源信息
-	theme_resource, err := this.mts.Get(theme[0].ThemeId)
+	theme_resource, err := this.mts.Get(theme.ThemeId)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
@@ -100,8 +100,6 @@ func (this *HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
 			one.Res_url = t_res.ResUrl
 			one.Res_open_type = t_res.ResOpenType
 			one.New_iframe = t_res.NewIframe
-			one.Inner_flag = val.InnerFlag
-			one.ServiceCd = val.ServiceCd
 			rst = append(rst, one)
 		}
 	}
@@ -122,13 +120,13 @@ func (this *HomePageMenusModel) GetUrl(user_id, id string) (string, error) {
 func (this *HomePageMenusModel) GetAllMenusExceptButton(userId string, menuId string) ([]byte, error) {
 	// 首先获取用户主题信息
 	theme, err := this.mut.Get(userId)
-	if err != nil || len(theme) != 1 {
+	if err != nil {
 		logger.Error(err)
 		return nil, err
 	}
 
 	// 获取这个主题的所有资源信息
-	theme_resource, err := this.mts.Get(theme[0].ThemeId)
+	theme_resource, err := this.mts.Get(theme.ThemeId)
 	if err != nil {
 		logger.Error(err)
 		return nil, err
@@ -157,7 +155,7 @@ func (this *HomePageMenusModel) GetAllMenusExceptButton(userId string, menuId st
 				one.Res_id = val.ResId
 				one.Res_up_id = val.ResUpid
 				one.Res_name = val.ResName
-				one.Inner_flag = val.InnerFlag
+				one.Method = val.Method
 				one.Res_attr = val.ResAttr
 				rst = append(rst, one)
 			} else {
@@ -191,7 +189,7 @@ func (this *HomePageMenusModel) GetAllMenusExceptButton(userId string, menuId st
 				one.Res_id = val.ResId
 				one.Res_up_id = val.ResUpid
 				one.Res_name = val.ResName
-				one.Inner_flag = val.InnerFlag
+				one.Method = val.Method
 				one.Res_attr = val.ResAttr
 				rst = append(rst, one)
 			} else {
@@ -214,7 +212,7 @@ func (this *HomePageMenusModel) GetAllMenusExceptButton(userId string, menuId st
 			one.Res_url = t_res.ResUrl
 			one.Res_open_type = t_res.ResOpenType
 			one.New_iframe = t_res.NewIframe
-			one.Inner_flag = val.InnerFlag
+			one.Method = val.Method
 			one.Res_attr = val.ResAttr
 			rst = append(rst, one)
 		}

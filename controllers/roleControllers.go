@@ -3,10 +3,10 @@ package controllers
 import (
 	"encoding/json"
 
-	"github.com/asofdate/auth-core/entity"
-	"github.com/asofdate/auth-core/groupcache"
-	"github.com/asofdate/auth-core/models"
-	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth-core/groupcache"
+	"github.com/hzwy23/auth-core/models"
+	"github.com/hzwy23/auth-core/service"
 	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"

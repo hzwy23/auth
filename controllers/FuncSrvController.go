@@ -3,9 +3,9 @@ package controllers
 import (
 	"encoding/json"
 
-	"github.com/asofdate/auth-core/groupcache"
-	"github.com/asofdate/auth-core/models"
-	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/auth-core/groupcache"
+	"github.com/hzwy23/auth-core/models"
+	"github.com/hzwy23/auth-core/service"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
 	"github.com/hzwy23/utils/logger"
@@ -34,14 +34,12 @@ func GetServiceManagePage(ctx router.Context) {
 }
 
 // 查询功能服务
-// @param themeId 主题编码
 // @param resId   资源编码
 func (this *FuncSrvController) Get() {
 	this.Ctx.Request.ParseForm()
 	resId := this.Ctx.Request.FormValue("resId")
-	themeId := this.Ctx.Request.FormValue("themeId")
 
-	rst, err := this.funcRoute.Get(resId, themeId)
+	rst, err := this.funcRoute.Get(resId)
 	if err != nil {
 		logger.Error(err)
 		hret.Error(this.Ctx.ResponseWriter, 421, "查询失败，请联系管理员")
@@ -82,13 +80,14 @@ func (this *FuncSrvController) Put() {
 	row.ResName = form.Get("res_name")
 	row.ResUpId = form.Get("res_up_id")
 	row.ResUrl = form.Get("res_url")
-	row.ServiceCd = form.Get("service_cd")
+	row.Method = form.Get("method")
 	row.ResOpenType = form.Get("res_type")
 	row.NewIframe = form.Get("new_iframe")
-	row.ThemeId = form.Get("theme_id")
 	row.Uuid = form.Get("uuid")
+	row.ThemeId = "funcs"
+
 	var err error
-	if this.funcRoute.IsExists(row.ResId, row.ThemeId) {
+	if this.funcRoute.IsExists(row.ResId) {
 		err = this.funcRoute.Update(row)
 	} else {
 		err = this.funcRoute.AddTheme(row)
@@ -104,17 +103,16 @@ func (this *FuncSrvController) Put() {
 // 新建功能服务配置信息
 func (this *FuncSrvController) Post() {
 	this.Ctx.Request.ParseForm()
-
 	form := this.Ctx.Request.Form
 	var row models.FuncRoute
 	row.ResId = form.Get("res_id")
 	row.ResName = form.Get("res_name")
 	row.ResUpId = form.Get("res_up_id")
 	row.ResUrl = form.Get("res_url")
-	row.ServiceCd = form.Get("service_cd")
+	row.Method = form.Get("method")
 	row.ResOpenType = form.Get("res_type")
 	row.NewIframe = form.Get("new_iframe")
-	row.ThemeId = form.Get("theme_id")
+	row.ThemeId = "funcs"
 
 	err := this.funcRoute.Post(row)
 	if err != nil {

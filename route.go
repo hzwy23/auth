@@ -1,15 +1,15 @@
 package auth_core
 
 import (
-	"github.com/asofdate/auth-core/controllers"
 	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth-core/controllers"
 )
 
 func Register() {
 
-	router.Get("/HomePage", controllers.HomePage)
-	router.Post("/login", controllers.LoginSystem)
-	router.Any("/logout", controllers.LogoutSystem)
+	router.Get("/v1/auth/HomePage", controllers.HomePage)
+	router.Post("/v1/auth/login", controllers.LoginSystem)
+	router.Any("/v1/auth/logout", controllers.LogoutSystem)
 	router.Get("/", controllers.IndexPage)
 
 	router.Post("/v1/auth/theme/update", controllers.ThemeCtl.Post)

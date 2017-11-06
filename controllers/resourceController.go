@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"github.com/asofdate/auth-core/entity"
-	"github.com/asofdate/auth-core/groupcache"
-	"github.com/asofdate/auth-core/models"
-	"github.com/asofdate/auth-core/service"
+	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth-core/groupcache"
+	"github.com/hzwy23/auth-core/models"
+	"github.com/hzwy23/auth-core/service"
+	"github.com/hzwy23/utils"
 	"github.com/hzwy23/utils/hret"
 	"github.com/hzwy23/utils/i18n"
 	"github.com/hzwy23/utils/jwt"
@@ -144,18 +145,14 @@ func (this resourceController) Query(ctx router.Context) {
 //     description: success
 func (this resourceController) Post(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
-	form := ctx.Request.Form
 
 	var arg entity.ResData
-	arg.Restype = form.Get("res_type")
-	arg.ResId = form.Get("res_id")
-	arg.ResName = form.Get("res_name")
-	arg.ResUpid = form.Get("res_up_id")
-	arg.ServiceCd = form.Get("service_cd")
+	err := utils.ParseForm(ctx.Request, &arg)
+	if err != nil {
+		logger.Error(err)
+		hret.Error(ctx.ResponseWriter, 421, err.Error())
+		return
+	}
 
 	msg, err := this.models.Post(arg)
 	if err != nil {
@@ -238,16 +235,8 @@ func (this resourceController) Delete(ctx router.Context) {
 //     description: success
 func (this resourceController) Update(ctx router.Context) {
 	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-		return
-	}
 	var arg entity.ResData
-
-	arg.ResId = ctx.Request.FormValue("res_id")
-	arg.ResName = ctx.Request.FormValue("res_name")
-	arg.ResUpid = ctx.Request.FormValue("res_up_id")
-	arg.ServiceCd = ctx.Request.FormValue("service_cd")
+	utils.ParseForm(ctx.Request, &arg)
 
 	msg, err := this.models.Update(arg)
 	if err != nil {
