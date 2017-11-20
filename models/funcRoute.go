@@ -2,8 +2,8 @@ package models
 
 import (
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/uuid"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/uuid"
 )
 
 type FuncRoute struct {
@@ -98,7 +98,7 @@ func (this *FuncRoute) Post(row FuncRoute) error {
 		return err
 	}
 
-	_, err = tx.Exec(sys_rdbms_008, uuid.GenUUID(), row.ThemeId, row.ResId, row.ResUrl,
+	_, err = tx.Exec(sys_rdbms_008, uuid.Random(), row.ThemeId, row.ResId, row.ResUrl,
 		row.ResOpenType, "", "", "", "", 0, row.NewIframe)
 	if err != nil {
 		logger.Error("添加功能按钮对应的主题配置信息失败，错误信息是：", err)
@@ -113,7 +113,7 @@ func (this *FuncRoute) AddTheme(row FuncRoute) error {
 		row.NewIframe = "false"
 	}
 
-	_, err := dbobj.Exec(sys_rdbms_008, uuid.GenUUID(), row.ThemeId, row.ResId, row.ResUrl,
+	_, err := dbobj.Exec(sys_rdbms_008, uuid.Random(), row.ThemeId, row.ResId, row.ResUrl,
 		row.ResOpenType, "", "", "", "",
 		0, row.NewIframe)
 	return err

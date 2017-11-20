@@ -1,16 +1,15 @@
 package service
 
 import (
+	"github.com/hzwy23/panda"
 	"html/template"
 	"net/http"
 	"sync"
 
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
 )
 
 type BasicAuthFilter struct {
@@ -37,8 +36,8 @@ func AddAuthUrl(url string) {
 	BAFilter.AddAuthUrl(url)
 }
 
-func Identify(ctx router.Context) {
-	BAFilter.Identify(ctx)
+func Identify(w http.ResponseWriter, r *http.Request) bool{
+	return BAFilter.Identify(w, r)
 }
 
 func NewBasicAuthFilter() *BasicAuthFilter {
@@ -63,12 +62,12 @@ func (this *BasicAuthFilter) AddConnUrl(url string) {
 }
 
 func (this *BasicAuthFilter) basicAuth(r *http.Request) bool {
-	jclaim, err := jwt.GetJwtClaims(r)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
 		return false
 	}
-	if utils.IsAdmin(jclaim.UserId) {
+	if panda.IsAdmin(jclaim.UserId) {
 		return true
 	}
 
@@ -81,33 +80,32 @@ func (this *BasicAuthFilter) basicAuth(r *http.Request) bool {
 }
 
 // 校验用户权限信息
-func (this *BasicAuthFilter) Identify(ctx router.Context) {
+func (this *BasicAuthFilter) Identify(w http.ResponseWriter, r *http.Request) bool{
 	// 校验连接信息
 	this.clock.RLock()
-	if _, yes := this.filterConnUrl[ctx.Request.URL.Path]; !yes {
-		if !jwt.CheckToken(ctx.Request) {
+	if _, yes := this.filterConnUrl[r.URL.Path]; !yes {
+		if !jwt.ValidHttp(r) {
 			this.clock.RUnlock()
 			hz, _ := template.ParseFiles("./views/hauth/disconnect.tpl")
-			hz.Execute(ctx.ResponseWriter, nil)
-			ctx.ResponseWriter.Started = true
-			return
+			hz.Execute(w, nil)
+			return false
 		}
 	} else {
 		this.clock.RUnlock()
-		return
+		return true
 	}
 	this.clock.RUnlock()
 
 	// 校验授权信息
 	this.alock.RLock()
-	if _, yes := this.filterAuthUrl[ctx.Request.URL.Path]; !yes {
-		flag := this.basicAuth(ctx.Request)
+	defer this.alock.RUnlock()
+	if _, yes := this.filterAuthUrl[r.URL.Path]; !yes {
+		flag := this.basicAuth(r)
 		if !flag {
-			logger.Info("您没有被授权访问：", ctx.Request.URL)
-			hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
-			ctx.ResponseWriter.Started = true
+			logger.Info("您没有被授权访问：", r.URL)
+			hret.Error(w, 403, i18n.NoAuth(r))
+			return false
 		}
 	}
-	this.alock.RUnlock()
-	return
+	return true
 }

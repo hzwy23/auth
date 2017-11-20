@@ -1,38 +1,38 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
-	"github.com/hzwy23/utils/uuid"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/uuid"
+	"net/http"
+	"time"
 )
 
 type SysPrivilegeDomainController struct {
 	privilegeDomain models.SysPrivilegeDomain
-	router.Controller
 }
 
 // 查询权限与域关联关系
-func GetPrivilegeDomainPage(ctx router.Context) {
-	tpl, _ := service.ParseFile(ctx, "./views/hauth/sysPrivilegeDomain.tpl")
-	privilegeId := ctx.Request.FormValue("privilegeId")
-	tpl.Execute(ctx.ResponseWriter, privilegeId)
+func GetPrivilegeDomainPage(w http.ResponseWriter, r *http.Request) {
+	tpl, _ := service.ParseFile(r, "./views/hauth/sysPrivilegeDomain.tpl")
+	privilegeId := r.FormValue("privilegeId")
+	tpl.Execute(w, privilegeId)
 }
 
-func (this *SysPrivilegeDomainController) Get() {
-	this.Ctx.Request.ParseForm()
+func (this *SysPrivilegeDomainController) Get(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
-	privilegeId := this.Ctx.Request.FormValue("privilegeId")
-	typeCd := this.Ctx.Request.FormValue("typeCd")
+	privilegeId := r.FormValue("privilegeId")
+	typeCd := r.FormValue("typeCd")
 
 	if len(privilegeId) == 0 {
-		hret.Error(this.Ctx.ResponseWriter, 423, "参数为空")
+		hret.Error(w, 423, "参数为空")
 		return
 	}
 
@@ -40,97 +40,97 @@ func (this *SysPrivilegeDomainController) Get() {
 		rst, err := this.privilegeDomain.Get(privilegeId)
 		if err != nil {
 			logger.Error(err)
-			hret.Error(this.Ctx.ResponseWriter, 421, err.Error())
+			hret.Error(w, 421, err.Error())
 			return
 		}
-		hret.Json(this.Ctx.ResponseWriter, rst)
+		hret.Json(w, rst)
 	} else {
 		rst, err := this.privilegeDomain.GetUmmapDomain(privilegeId)
 		if err != nil {
 			logger.Error(err)
-			hret.Error(this.Ctx.ResponseWriter, 421, err.Error())
+			hret.Error(w, 421, err.Error())
 			return
 		}
-		hret.Json(this.Ctx.ResponseWriter, rst)
+		hret.Json(w, rst)
 	}
 }
 
-func (this *SysPrivilegeDomainController) Post() {
+func (this *SysPrivilegeDomainController) Post(w http.ResponseWriter, r *http.Request) {
 	var rows []entity.PrivilegeDomain
-	err := utils.ParseForm(this.Ctx.Request, &rows, "JSON")
+	err := panda.ParseForm(r, &rows, "JSON")
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
 
-	claim, err := jwt.GetJwtClaims(this.Ctx.Request)
+	claim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 424, err.Error())
+		hret.Error(w, 424, err.Error())
 		return
 	}
 
 	for index, _ := range rows {
-		rows[index].Uuid = uuid.GenUUID()
+		rows[index].Uuid = uuid.Random()
 		rows[index].CreateUser = claim.UserId
 		rows[index].ModifyUser = claim.UserId
-		rows[index].CreateTime = utils.GetCurrentTime()
+		rows[index].CreateTime = time.Now().Format("2006-01-02 15:04:05")
 		rows[index].ModifyTime = rows[index].CreateTime
 	}
 
 	err = this.privilegeDomain.Post(rows)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
-	hret.Success(this.Ctx.ResponseWriter, i18n.Success(this.Ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
-func (this *SysPrivilegeDomainController) Put() {
+func (this *SysPrivilegeDomainController) Put(w http.ResponseWriter, r *http.Request) {
 	var row entity.PrivilegeDomain
-	err := utils.ParseForm(this.Ctx.Request, &row)
+	err := panda.ParseForm(r, &row)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
 
-	claim, err := jwt.GetJwtClaims(this.Ctx.Request)
+	claim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 424, err.Error())
+		hret.Error(w, 424, err.Error())
 		return
 	}
 
 	row.CreateUser = claim.UserId
 	row.ModifyUser = claim.UserId
-	row.CreateTime = utils.GetCurrentTime()
+	row.CreateTime = time.Now().Format("2006-01-02 15:04:05")
 	row.ModifyTime = row.CreateTime
 
 	err = this.privilegeDomain.Put(row)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
-	hret.Success(this.Ctx.ResponseWriter, i18n.Success(this.Ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
-func (this *SysPrivilegeDomainController) Delete() {
+func (this *SysPrivilegeDomainController) Delete(w http.ResponseWriter, r *http.Request) {
 	var rows []entity.PrivilegeDomain
-	err := utils.ParseForm(this.Ctx.Request, &rows, "JSON")
+	err := panda.ParseForm(r, &rows, "JSON")
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
 	err = this.privilegeDomain.Delete(rows)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 424, err.Error())
+		hret.Error(w, 424, err.Error())
 		return
 	}
-	hret.Success(this.Ctx.ResponseWriter, i18n.Success(this.Ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }

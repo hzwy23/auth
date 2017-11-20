@@ -3,10 +3,10 @@ package models
 import (
 	"encoding/json"
 
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/logger"
 )
 
 const redirect = `
@@ -50,7 +50,7 @@ func (this *HomePageMenusModel) Get(id, typeId, useId string) ([]byte, error) {
 
 	// 如果是超级管理员用户，
 	// 获取系统中所有的菜单信息
-	if utils.IsAdmin(useId) {
+	if panda.IsAdmin(useId) {
 		resdata, err := this.ms.GetChildren(id)
 		if err != nil {
 			logger.Error(err)
@@ -141,7 +141,7 @@ func (this *HomePageMenusModel) GetAllMenusExceptButton(userId string, menuId st
 
 	// 如果是超级管理员用户，
 	// 获取系统中所有的菜单信息
-	if utils.IsAdmin(userId) {
+	if panda.IsAdmin(userId) {
 		// 获取所有的下级资源
 		resdata, err := this.ms.GetChildExceptButton(menuId)
 		if err != nil {

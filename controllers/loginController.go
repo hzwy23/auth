@@ -6,18 +6,16 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/hzwy23/auth-core/dto"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/crypto/haes"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
-	"github.com/hzwy23/utils/validator"
-)
+	"github.com/hzwy23/auth/dto"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda/crypto/aes"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/validator"
+	)
 
 var indexModels = new(models.LoginModels)
 var password = &models.PasswdModels{}
@@ -37,17 +35,16 @@ var password = &models.PasswdModels{}
 // responses:
 //   '200':
 //     description: all domain information
-func HomePage(ctx router.Context) {
-	defer hret.HttpPanic(func() {
+func HomePage(w http.ResponseWriter,r *http.Request) {
+	defer hret.RecvPanic(func() {
 		logger.Error("Get Home Page Failure.")
-		ctx.Redirect(302, "/")
+		http.Redirect(w,r,"/",302)
 	})
 
-	cok, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cok.Value)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		ctx.Redirect(302, "/")
+		http.Redirect(w,r,"/",302)
 		return
 	}
 
@@ -55,24 +52,24 @@ func HomePage(ctx router.Context) {
 	h, err := template.ParseFiles(url)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_get_login_page"), err)
+		hret.Error(w, 421, i18n.Get(r, "error_get_login_page"), err)
 		return
 	}
-	h.Execute(ctx.ResponseWriter, jclaim.UserId)
+	h.Execute(w, jclaim.UserId)
 }
 
-func LogoutSystem(ctx router.Context) {
+func LogoutSystem(w http.ResponseWriter,r *http.Request) {
 	cookie := http.Cookie{Name: "Authorization", Value: "", Path: "/", MaxAge: -1}
-	http.SetCookie(ctx.ResponseWriter, &cookie)
-	ctx.ResponseWriter.Header().Set("Authorization", "")
-	hret.Success(ctx.ResponseWriter, "logout successfully")
+	http.SetCookie(w, &cookie)
+	w.Header().Set("Authorization", "")
+	hret.Success(w, "logout successfully")
 	return
 }
 
 // 登录系统
-func LoginSystem(ctx router.Context) {
-	ctx.Request.ParseForm()
-	form := ctx.Request.Form
+func LoginSystem(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
+	form := r.Form
 	username := form.Get("username")
 	password := form.Get("password")
 	duration := form.Get("duration")
@@ -83,7 +80,7 @@ func LoginSystem(ctx router.Context) {
 			RetCode:  422,
 			RetMsg:   "鉴权失败，账号为空",
 		}
-		result(ctx.ResponseWriter, rdto)
+		result(w, rdto)
 		return
 	}
 
@@ -93,7 +90,7 @@ func LoginSystem(ctx router.Context) {
 			RetCode:  423,
 			RetMsg:   "鉴权失败，密码为空",
 		}
-		result(ctx.ResponseWriter, rdto)
+		result(w, rdto)
 		return
 	}
 
@@ -106,21 +103,13 @@ func LoginSystem(ctx router.Context) {
 	})
 
 	if retDto.RetCode == 200 {
-		//domainId, err := service.DomainService.GetDomainByUserid(username)
-		//if err != nil {
-		//	logger.Error(username, " 用户没有指定的域", err)
-		//	retDto.RetCode = 426
-		//	retDto.RetMsg = "获取用户域信息失败"
-		//	result(ctx.ResponseWriter, retDto)
-		//	return
-		//}
 
 		orgid, err := service.OrgService.GetOrgUnitId(username)
 		if err != nil {
 			logger.Error(username, " 用户没有指定机构", err)
 			retDto.RetCode = 427
 			retDto.RetMsg = "获取用户所在机构失败"
-			result(ctx.ResponseWriter, retDto)
+			result(w, retDto)
 			return
 		}
 
@@ -128,21 +117,21 @@ func LoginSystem(ctx router.Context) {
 		if err != nil || validator.IsEmpty(duration) {
 			et = 17280
 		}
-		reqIP := utils.GetRequestIP(ctx.Request)
-		token := jwt.GenToken(username, orgid, et, reqIP)
+
+		token,_ := jwt.GenToken(jwt.NewUserdata().SetUserId(username).SetOrgunitId(orgid))
 		cookie := http.Cookie{Name: "Authorization", Value: token, Path: "/", MaxAge: int(et)}
-		http.SetCookie(ctx.ResponseWriter, &cookie)
+		http.SetCookie(w, &cookie)
 		retDto.RetMsg = token
-		result(ctx.ResponseWriter, retDto)
+		result(w, retDto)
 		return
 	}
-	result(ctx.ResponseWriter, retDto)
+	result(w, retDto)
 	return
 }
 
 func checkUserPassword(cdto dto.AuthDto) dto.AuthDto {
 	// 加密用户信息
-	pd, err := haes.Encrypt(cdto.Password)
+	pd, err := aes.Encrypt(cdto.Password)
 	if err != nil {
 		logger.Error(err)
 		cdto.RetCode = 434

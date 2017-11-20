@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"net/http"
 )
 
 type swaggerController struct {
@@ -28,19 +28,19 @@ var SwaggerCtl = &swaggerController{}
 // responses:
 //   '200':
 //     description: success
-func (this swaggerController) Page(ctx router.Context) {
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this swaggerController) Page(w http.ResponseWriter, r *http.Request) {
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	rst, err := groupcache.GetStaticFile("SwaggerPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
+		hret.Error(w, 404, i18n.Get(r, "as_of_date_page_not_exist"))
 		return
 	}
 
-	ctx.ResponseWriter.Write(rst)
+	w.Write(rst)
 }
 
 func init() {

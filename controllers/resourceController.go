@@ -1,16 +1,16 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"net/http"
 )
 
 type resourceController struct {
@@ -36,25 +36,25 @@ var ResourceCtl = &resourceController{
 // responses:
 //   '200':
 //     description: all domain information
-func (resourceController) Page(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (resourceController) Page(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	rst, err := groupcache.GetStaticFile("AsofdateResourcePage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
 
-	hz, err := service.ParseText(ctx, string(rst))
+	hz, err := service.ParseText(r, string(rst))
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz.Execute(ctx.ResponseWriter, nil)
+	hz.Execute(w, nil)
 }
 
 // swagger:operation GET /v1/auth/resource/get resourceController getdomainShareControll
@@ -79,20 +79,20 @@ func (resourceController) Page(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Get(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this resourceController) Get(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	rst, err := this.models.Get()
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_resource_query"), err)
+		hret.Error(w, 419, i18n.Get(r, "error_resource_query"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation GET /v1/auth/resource/query resourceController getdomainShareControll
@@ -116,16 +116,16 @@ func (this resourceController) Get(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Query(ctx router.Context) {
-	ctx.Request.ParseForm()
-	res_id := ctx.Request.FormValue("res_id")
+func (this resourceController) Query(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	res_id := r.FormValue("res_id")
 	rst, err := this.models.Query(res_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_resource_query"), err)
+		hret.Error(w, 419, i18n.Get(r, "error_resource_query"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation POST /v1/auth/resource/post resourceController getdomainShareControll
@@ -143,24 +143,24 @@ func (this resourceController) Query(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Post(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this resourceController) Post(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
 	var arg entity.ResData
-	err := utils.ParseForm(ctx.Request, &arg)
+	err := panda.ParseForm(r, &arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, err.Error())
+		hret.Error(w, 421, err.Error())
 		return
 	}
 
 	msg, err := this.models.Post(arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 
 }
 
@@ -185,24 +185,24 @@ func (this resourceController) Post(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Delete(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this resourceController) Delete(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
-	res_id := ctx.Request.FormValue("res_id")
+	res_id := r.FormValue("res_id")
 
 	msg, err := this.models.Delete(res_id)
 
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, msg, err)
+		hret.Error(w, 419, msg, err)
 		return
 	}
 
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation PUT /v1/auth/resource/update resourceController getdomainShareControll
@@ -233,45 +233,45 @@ func (this resourceController) Delete(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this resourceController) Update(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this resourceController) Update(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	var arg entity.ResData
-	utils.ParseForm(ctx.Request, &arg)
+	panda.ParseForm(r, &arg)
 
 	msg, err := this.models.Update(arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
-func (this *resourceController) GetNodes(ctx router.Context) {
+func (this *resourceController) GetNodes(w http.ResponseWriter, r *http.Request) {
 	rst, err := this.models.GetNodes()
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, "查询菜单信息失败，请联系管理员", err)
+		hret.Error(w, 423, "查询菜单信息失败，请联系管理员", err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
-func (this *resourceController) GetSubsystemList(ctx router.Context) {
-	claim, err := jwt.GetJwtClaims(ctx.Request)
+func (this *resourceController) GetSubsystemList(w http.ResponseWriter, r *http.Request) {
+	claim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
 
 	rst, err := this.models.GetSubsystem(claim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, "查询子模块失败，请联系管理员")
+		hret.Error(w, 423, "查询子模块失败，请联系管理员")
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 func init() {

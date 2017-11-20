@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/panda/logger"
 )
 
 type LoginModels struct {

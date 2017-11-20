@@ -1,12 +1,12 @@
 package models
 
 import (
+	"github.com/hzwy23/panda"
 	"sync"
 
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/panda/logger"
 )
 
 type RoleAndResourceModel struct {
@@ -101,7 +101,7 @@ func (this *RoleAndResourceModel) Post(role_id string, resSlick []string) error 
 		if len(rst) == 0 {
 			if _, yes := mp[val]; !yes {
 				mp[val] = true
-				_, err = tx.Exec(sys_rdbms_074, utils.JoinCode(role_id, val), role_id, val)
+				_, err = tx.Exec(sys_rdbms_074, panda.JoinKey(role_id, val), role_id, val)
 				if err != nil {
 					logger.Error(err)
 					tx.Rollback()
@@ -112,7 +112,7 @@ func (this *RoleAndResourceModel) Post(role_id string, resSlick []string) error 
 			for _, s := range rst {
 				if _, yes := mp[s.ResId]; !yes {
 					mp[s.ResId] = true
-					_, err = tx.Exec(sys_rdbms_074, utils.JoinCode(role_id, s.ResId), role_id, s.ResId)
+					_, err = tx.Exec(sys_rdbms_074, panda.JoinKey(role_id, s.ResId), role_id, s.ResId)
 					if err != nil {
 						logger.Error(err)
 						tx.Rollback()

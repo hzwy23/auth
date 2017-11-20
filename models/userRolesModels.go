@@ -1,10 +1,10 @@
 package models
 
 import (
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/logger"
 )
 
 type UserRolesModel struct {
@@ -61,7 +61,7 @@ func (this *UserRolesModel) Auth(data []UserRolesModel, user_id string) (string,
 	}
 
 	for _, val := range data {
-		uuid := utils.JoinCode(val.User_id, val.Role_id)
+		uuid := panda.JoinKey(val.User_id, val.Role_id)
 		_, err = tx.Exec(sys_rdbms_096, uuid, val.Role_id, val.User_id, user_id)
 		if err != nil {
 			logger.Info("用户【", val.User_id, "】已经拥有了角色【", val.Role_id, "】，无需重复授权。")

@@ -2,39 +2,32 @@ package service
 
 import (
 	"encoding/json"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/route"
+	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
-
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
 )
 
 var log_buf = make(chan entity.HandleLogBuf, 40960)
 var handleModel = &models.HandleLogMode{}
 
-func WriteHandleLogs(ctx router.Context) {
-	defer hret.HttpPanic()
+func WriteHandleLogs(w http.ResponseWriter, r *http.Request) {
+	defer hret.RecvPanic()
 
-	if strings.HasPrefix(ctx.Request.URL.Path, "/") {
+	if nw, ok := w.(*route.Response); ok {
 		var one entity.HandleLogBuf
-		status := ctx.ResponseWriter.Status
-		if status == 0 {
-			status = 200
-		}
-		one.Ret_status = strconv.Itoa(status)
-		one.Req_url = ctx.Request.URL.Path
-		one.Req_body = formencode(ctx.Request.Form)
-		one.Client_ip = ctx.Input.IP()
-		one.Req_method = ctx.Request.Method
+		one.Ret_status = strconv.Itoa(nw.Status)
+		one.Req_url = r.URL.Path
+		one.Req_body = formencode(r.Form)
+		one.Client_ip = route.RequestIP(r)
+		one.Req_method = r.Method
 
-		cookie, _ := ctx.Request.Cookie("Authorization")
-		jclaim, err := jwt.ParseJwt(cookie.Value)
+		jclaim, err := jwt.ParseHttp(r)
 		if err != nil {
 			one.User_id = one.Client_ip
 			one.Domain_id = one.Client_ip
@@ -42,7 +35,6 @@ func WriteHandleLogs(ctx router.Context) {
 			one.User_id = jclaim.UserId
 			one.Domain_id = jclaim.OrgUnitId
 		}
-		logger.Infow("http request:", "user_id", one.User_id, "client_up", one.Client_ip, "ret_status", one.Ret_status, "req_method", one.Req_method, "req_url", one.Req_url, "domain_id", one.Domain_id, "req_body", one.Req_body)
 		log_buf <- one
 	}
 }

@@ -5,17 +5,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
 	"github.com/tealeg/xlsx"
+	"net/http"
+	"github.com/hzwy23/panda"
 )
 
 type orgController struct {
@@ -43,25 +43,25 @@ var OrgCtl = &orgController{
 // responses:
 //   '200':
 //     description: success
-func (orgController) Page(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (orgController) Page(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	rst, err := groupcache.GetStaticFile("AsofdateOrgPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
 
-	hz, err := service.ParseText(ctx, string(rst))
+	hz, err := service.ParseText(r, string(rst))
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz.Execute(ctx.ResponseWriter, nil)
+	hz.Execute(w, nil)
 }
 
 // swagger:operation GET /v1/auth/resource/org/get orgController orgController
@@ -86,16 +86,16 @@ func (orgController) Page(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Get(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this orgController) Get(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
 	rst, err := this.models.Get()
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 417, i18n.Get(ctx.Request, "error_query_org_info"))
+		hret.Error(w, 417, i18n.Get(r, "error_query_org_info"))
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation POST /v1/auth/resource/org/delete orgController orgController
@@ -126,19 +126,19 @@ func (this orgController) Get(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Delete(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this orgController) Delete(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
-	orgUnitId := ctx.Request.FormValue("orgUnitId")
+	orgUnitId := r.FormValue("orgUnitId")
 
 	msg, err := this.models.Delete(orgUnitId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 418, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 418, i18n.Get(r, msg), err)
 		return
 	}
 
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation PUT /v1/auth/resource/org/update orgController orgController
@@ -163,30 +163,30 @@ func (this orgController) Delete(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Update(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this orgController) Update(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 	var arg entity.SysOrgInfo
-	err := utils.ParseForm(ctx.Request, &arg)
+	err := panda.ParseForm(r, &arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, err.Error())
+		hret.Error(w, 421, err.Error())
 		return
 	}
 
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	msg, err := this.models.Update(arg, jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Get(ctx.Request, "success"))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation POST /v1/auth/resource/org/post orgController orgController
@@ -229,29 +229,29 @@ func (this orgController) Update(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Post(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this orgController) Post(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 	var arg entity.SysOrgInfo
-	err := utils.ParseForm(ctx.Request, &arg)
+	err := panda.ParseForm(r, &arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	msg, err := this.models.Post(arg, jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Get(ctx.Request, "success"))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation GET /v1/auth/relation/domain/org orgController orgController
@@ -282,19 +282,19 @@ func (this orgController) Post(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) GetSubOrgInfo(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this orgController) GetSubOrgInfo(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
-	org_unit_id := ctx.Request.FormValue("org_unit_id")
+	org_unit_id := r.FormValue("org_unit_id")
 
 	rst, err := this.models.GetSubOrgInfo(org_unit_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_org_sub_query"))
+		hret.Error(w, 419, i18n.Get(r, "error_org_sub_query"))
 		return
 	}
 
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation GET /v1/auth/resource/org/download orgController orgController
@@ -319,19 +319,19 @@ func (this orgController) GetSubOrgInfo(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Download(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this orgController) Download(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
-	ctx.ResponseWriter.Header().Set("Content-Type", "application/vnd.ms-excel")
+	w.Header().Set("Content-Type", "application/vnd.ms-excel")
 
 	rst, err := this.models.Get()
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 417, i18n.Get(ctx.Request, "error_query_org_info"))
+		hret.Error(w, 417, i18n.Get(r, "error_query_org_info"))
 		return
 	}
 
@@ -342,7 +342,7 @@ func (this orgController) Download(ctx router.Context) {
 		sheet, err = file.AddSheet("机构信息")
 		if err != nil {
 			logger.Error(err)
-			hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_org_sheet"))
+			hret.Error(w, 421, i18n.Get(r, "error_org_sheet"))
 			return
 		}
 
@@ -370,7 +370,7 @@ func (this orgController) Download(ctx router.Context) {
 	} else {
 		sheet = file.Sheet["机构信息"]
 		if sheet == nil {
-			hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_org_sheet"))
+			hret.Error(w, 421, i18n.Get(r, "error_org_sheet"))
 			return
 		}
 	}
@@ -385,7 +385,7 @@ func (this orgController) Download(ctx router.Context) {
 		cell2.SetStyle(sheet.Rows[1].Cells[1].GetStyle())
 
 		cell3 := row.AddCell()
-		cell3.Value, _ = utils.SplitCode(v.UpOrgId)
+		cell3.Value, _ = panda.GetKey(v.UpOrgId,2)
 		cell3.SetStyle(sheet.Rows[1].Cells[2].GetStyle())
 
 		cell5 := row.AddCell()
@@ -410,7 +410,7 @@ func (this orgController) Download(ctx router.Context) {
 		sheet.Rows = append(sheet.Rows[0:1], sheet.Rows[2:]...)
 	}
 
-	file.Write(ctx.ResponseWriter)
+	file.Write(w)
 }
 
 // swagger:operation GET /v1/auth/resource/org/upload orgController orgController
@@ -437,18 +437,17 @@ func (this orgController) Download(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this orgController) Upload(ctx router.Context) {
+func (this orgController) Upload(w http.ResponseWriter,r *http.Request) {
 	if len(this.upload) != 0 {
-		hret.Success(ctx.ResponseWriter, i18n.Get(ctx.Request, "error_org_upload_wait"))
+		hret.Success(w, i18n.Get(r, "error_org_upload_wait"))
 		return
 	}
 
 	// 从cookies中获取用户连接信息
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
@@ -456,18 +455,18 @@ func (this orgController) Upload(ctx router.Context) {
 	this.upload <- 1
 	defer func() { <-this.upload }()
 
-	ctx.Request.ParseForm()
-	fd, _, err := ctx.Request.FormFile("file")
+	r.ParseForm()
+	fd, _, err := r.FormFile("file")
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_org_read_upload_file"))
+		hret.Error(w, 421, i18n.Get(r, "error_org_read_upload_file"))
 		return
 	}
 
 	result, err := ioutil.ReadAll(fd)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_org_read_upload_file"))
+		hret.Error(w, 421, i18n.Get(r, "error_org_read_upload_file"))
 		return
 	}
 
@@ -477,7 +476,7 @@ func (this orgController) Upload(ctx router.Context) {
 	sheet, ok := file.Sheet["机构信息"]
 	if !ok {
 		logger.Error("没有找到'机构信息'这个sheet页")
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_org_sheet"))
+		hret.Error(w, 421, i18n.Get(r, "error_org_sheet"))
 		return
 	}
 
@@ -491,7 +490,7 @@ func (this orgController) Upload(ctx router.Context) {
 			one.CreateUser = jclaim.UserId
 
 			if one.OrgUnitId == one.UpOrgId {
-				hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "as_of_date_up_org_equal_org_id"))
+				hret.Error(w, 421, i18n.Get(r, "as_of_date_up_org_equal_org_id"))
 				return
 			}
 
@@ -502,29 +501,29 @@ func (this orgController) Upload(ctx router.Context) {
 	msg, err := this.models.Upload(data)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // 查询某个机构的详细信息
-func (this orgController) GetDetails(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this orgController) GetDetails(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
-	orgUnitId := ctx.Request.FormValue("orgUnitId")
+	orgUnitId :=r.FormValue("orgUnitId")
 	if len(orgUnitId) == 0 {
 		logger.Error("机构号为空")
-		hret.Error(ctx.ResponseWriter, 421, "机构号为空")
+		hret.Error(w, 421, "机构号为空")
 		return
 	}
 	row, err := this.models.GetDetails(orgUnitId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
-	hret.Json(ctx.ResponseWriter, row)
+	hret.Json(w, row)
 }
 
 func init() {

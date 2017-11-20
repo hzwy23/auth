@@ -2,20 +2,20 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/crypto/haes"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
-	"github.com/hzwy23/utils/validator"
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/crypto/aes"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/validator"
 )
 
 type userController struct {
@@ -39,19 +39,19 @@ var UserCtl = &userController{}
 // responses:
 //   '200':
 //     description: success
-func (userController) Page(ctx router.Context) {
+func (userController) Page(w http.ResponseWriter, r *http.Request) {
 
 	rst, err := groupcache.GetStaticFile("AsofdasteUserPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz, err := service.ParseText(ctx, string(rst))
+	hz, err := service.ParseText(r, string(rst))
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz.Execute(ctx.ResponseWriter, nil)
+	hz.Execute(w, nil)
 }
 
 // swagger:operation GET /v1/auth/user/get userController userController
@@ -76,16 +76,16 @@ func (userController) Page(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Get(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this userController) Get(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
 	rst, err := this.models.GetDefault()
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 410, i18n.Get(ctx.Request, "error_user_query"), err)
+		hret.Error(w, 410, i18n.Get(r, "error_user_query"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation POST /v1/auth/user/post userController userController
@@ -110,60 +110,60 @@ func (this userController) Get(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Post(ctx router.Context) {
+func (this userController) Post(w http.ResponseWriter, r *http.Request) {
 	var arg entity.UserInfo
-	err := utils.ParseForm(ctx.Request, &arg)
+	err := panda.ParseForm(r, &arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
 
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 	arg.UserOwner = jclaim.UserId
 
-	password := ctx.Request.FormValue("user_passwd")
-	surepassword := ctx.Request.FormValue("user_passwd_confirm")
+	password := r.FormValue("user_passwd")
+	surepassword := r.FormValue("user_passwd_confirm")
 
 	if validator.IsEmpty(password) {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_passwd_check"))
+		hret.Error(w, 421, i18n.Get(r, "error_user_passwd_check"))
 		return
 	}
 
 	if validator.IsEmpty(surepassword) {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_empty"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_empty"))
 		return
 	}
 
 	if password != surepassword {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_confirm_failed"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_confirm_failed"))
 		return
 	}
 
 	if len(strings.TrimSpace(password)) < 6 {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_short"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_short"))
 		return
 	}
 
-	userPasswd, err := haes.Encrypt(password)
+	userPasswd, err := aes.Encrypt(password)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_passwd_encrypt"))
+		hret.Error(w, 421, i18n.Get(r, "error_user_passwd_encrypt"))
 		return
 	}
 
 	msg, err := this.models.Post(arg, userPasswd)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 419, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation POST /v1/auth/user/delete userController userController
@@ -181,31 +181,31 @@ func (this userController) Post(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Delete(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this userController) Delete(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	var rst []entity.UserInfo
-	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &rst)
+	err := json.Unmarshal([]byte(r.FormValue("JSON")), &rst)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_user_json"))
+		hret.Error(w, 421, i18n.Get(r, "error_user_json"))
 		return
 	}
 
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	for _, val := range rst {
 
-		if utils.IsAdmin(val.UserId) {
-			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_forbid_delete_admin"))
+		if panda.IsAdmin(val.UserId) {
+			hret.Error(w, 403, i18n.Get(r, "error_user_forbid_delete_admin"))
 			return
 		}
 
 		if val.UserId == jclaim.UserId {
-			hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_forbid_yourself"))
+			hret.Error(w, 403, i18n.Get(r, "error_user_forbid_yourself"))
 			return
 		}
 	}
@@ -213,10 +213,10 @@ func (this userController) Delete(ctx router.Context) {
 	msg, err := this.models.Delete(rst)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 419, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation GET /v1/auth/user/search userController userController
@@ -257,20 +257,20 @@ func (this userController) Delete(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Search(ctx router.Context) {
-	ctx.Request.ParseForm()
-	var org_id = ctx.Request.FormValue("org_id")
-	var status_id = ctx.Request.FormValue("status_id")
+func (this userController) Search(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	var org_id = r.FormValue("org_id")
+	var status_id = r.FormValue("status_id")
 
 	logger.Debug("search user info,", org_id, status_id)
 
 	rst, err := this.models.Search(org_id, status_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_query"), err)
+		hret.Error(w, 419, i18n.Get(r, "error_user_query"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation PUT /v1/auth/user/put userController userController
@@ -295,25 +295,24 @@ func (this userController) Search(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) Put(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this userController) Put(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
-	form := ctx.Request.Form
+	form := r.Form
 
-	cok, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cok.Value)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 	msg, err := this.models.Put(form, jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation PUT /v1/auth/user/modify/passwd userController userController
@@ -338,18 +337,18 @@ func (this userController) Put(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) ModifyPasswd(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this userController) ModifyPasswd(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
-	form := ctx.Request.Form
+	form := r.Form
 
 	msg, err := this.models.ModifyPasswd(form)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 
 }
 
@@ -375,31 +374,30 @@ func (this userController) ModifyPasswd(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) ModifyStatus(ctx router.Context) {
-	ctx.Request.ParseForm()
-	user_id := ctx.Request.FormValue("userId")
-	status_id := ctx.Request.FormValue("userStatus")
+func (this userController) ModifyStatus(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	user_id := r.FormValue("userId")
+	status_id := r.FormValue("userStatus")
 
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	if jclaim.UserId == user_id {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Get(ctx.Request, "error_user_modify_yourself"))
+		hret.Error(w, 403, i18n.Get(r, "error_user_modify_yourself"))
 		return
 	}
 
 	msg, err := this.models.ModifyStatus(status_id, user_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation GET /v1/auth/user/query userController userController
@@ -424,21 +422,21 @@ func (this userController) ModifyStatus(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userController) GetUserDetails(ctx router.Context) {
-	ctx.Request.ParseForm()
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+func (this userController) GetUserDetails(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 401, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 401, i18n.Disconnect(r))
 		return
 	}
 	rst, err := this.models.GetOwnerDetails(jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_query"))
+		hret.Error(w, 419, i18n.Get(r, "error_user_query"))
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 func init() {

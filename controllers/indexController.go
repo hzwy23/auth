@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/logger"
+	"net/http"
 )
 
 // swagger:operation GET / StaticFiles IndexPage
@@ -22,13 +23,14 @@ import (
 // responses:
 //   '200':
 //     description: all domain information
-func IndexPage(ctx router.Context) {
+func IndexPage(w http.ResponseWriter, r *http.Request) {
 	rst, err := groupcache.GetStaticFile("AsofdateIndexPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		logger.Error(err)
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	ctx.ResponseWriter.Write(rst)
+	w.Write(rst)
 }
 
 func init() {

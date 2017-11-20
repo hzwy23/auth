@@ -2,17 +2,17 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/http"
 
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
 )
 
 type roleController struct {
@@ -45,25 +45,25 @@ var RoleCtl = &roleController{
 // responses:
 //   '200':
 //     description: success
-func (roleController) Page(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (roleController) Page(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	rst, err := groupcache.GetStaticFile("AsofdateRolePage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
 
-	hz, err := service.ParseText(ctx, string(rst))
+	hz, err := service.ParseText(r, string(rst))
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz.Execute(ctx.ResponseWriter, nil)
+	hz.Execute(w, nil)
 }
 
 // swagger:operation GET /v1/auth/role/get roleController roleController
@@ -88,18 +88,18 @@ func (roleController) Page(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Get(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this roleController) Get(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
 	rst, err := this.models.Get()
 
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_role_query"), err)
+		hret.Error(w, 421, i18n.Get(r, "error_role_query"), err)
 		return
 	}
 
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation POST /v1/auth/role/post roleController roleController
@@ -124,19 +124,19 @@ func (this roleController) Get(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Post(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this roleController) Post(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
 	var arg entity.RoleInfo
-	err := utils.ParseForm(ctx.Request, &arg)
+	err := panda.ParseForm(r, &arg)
 	if err != nil {
-		logger.Error(ctx.ResponseWriter, 423, err.Error())
+		logger.Error(w, 423, err.Error())
 		return
 	}
 
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
@@ -144,10 +144,10 @@ func (this roleController) Post(ctx router.Context) {
 	msg, err := this.models.Post(arg)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation POST /v1/auth/role/delete roleController roleController
@@ -172,28 +172,28 @@ func (this roleController) Post(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Delete(ctx router.Context) {
-	ctx.Request.ParseForm()
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+func (this roleController) Delete(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	var allrole []entity.RoleInfo
-	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &allrole)
+	err := json.Unmarshal([]byte(r.FormValue("JSON")), &allrole)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_role_json_failed"), err)
+		hret.Error(w, 421, i18n.Get(r, "error_role_json_failed"), err)
 		return
 	}
 
 	msg, err := this.models.Delete(allrole)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 418, i18n.Get(ctx.Request, msg))
+		hret.Error(w, 418, i18n.Get(r, msg))
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation PUT /v1/auth/role/put roleController roleController
@@ -218,19 +218,19 @@ func (this roleController) Delete(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this roleController) Update(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this roleController) Update(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	var arg entity.RoleInfo
-	err := utils.ParseForm(ctx.Request, &arg)
+	err := panda.ParseForm(r, &arg)
 	if err != nil {
-		logger.Error(ctx.ResponseWriter, 423, err.Error())
+		logger.Error(w, 423, err.Error())
 		return
 	}
 
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 	arg.RoleMaintanceUser = jclaim.UserId
@@ -238,10 +238,10 @@ func (this roleController) Update(ctx router.Context) {
 	msg, err := this.models.Update(arg)
 	if err != nil {
 		logger.Error(err.Error())
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 421, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 func init() {

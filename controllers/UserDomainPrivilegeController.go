@@ -1,29 +1,30 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/route"
+	"net/http"
 )
 
 type UserDomainPrivilegeController struct {
 	UserDomainPrivilegeModel models.UserDomainPrivilege
-	router.Controller
+	route.Controller
 }
 
-func (this *UserDomainPrivilegeController) Get() {
-	claim, err := jwt.GetJwtClaims(this.Ctx.Request)
+func (this *UserDomainPrivilegeController) Get(w http.ResponseWriter, r *http.Request) {
+	claim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(this.Ctx.ResponseWriter, 421, err.Error())
+		hret.Error(w, 421, err.Error())
 		return
 	}
 	rst, err := this.UserDomainPrivilegeModel.GetByUserId(claim.UserId)
 	if err != nil {
-		logger.Error(this.Ctx.ResponseWriter, 422, err.Error())
+		logger.Error(w, 422, err.Error())
 		return
 	}
-	hret.Json(this.Ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }

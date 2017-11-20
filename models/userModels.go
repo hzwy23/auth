@@ -5,11 +5,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils/crypto/haes"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/validator"
+	"github.com/hzwy23/panda/crypto/aes"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/validator"
 )
 
 type UserModel struct {
@@ -196,7 +196,7 @@ func (this UserModel) ModifyPasswd(data url.Values) (string, error) {
 		return "error_passwd_short", errors.New("error_passwd_short")
 	}
 
-	encry_passwd, err := haes.Encrypt(user_password)
+	encry_passwd, err := aes.Encrypt(user_password)
 	if err != nil {
 		logger.Error(err)
 		return "error_password_encrpty", errors.New("error_password_encrpty")

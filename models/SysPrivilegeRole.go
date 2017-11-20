@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/hzwy23/auth-core/dto"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth/dto"
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
 )
 

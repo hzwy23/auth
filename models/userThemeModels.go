@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth/entity"
 )
 
 type UserThemeModel struct {

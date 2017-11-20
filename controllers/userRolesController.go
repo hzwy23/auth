@@ -2,15 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/http"
 
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
 )
 
 type userRolesController struct {
@@ -44,39 +44,39 @@ var UserRolesCtl = &userRolesController{
 //     description: request success.
 //   '404':
 //     description: page not found.
-func (this *userRolesController) Page(ctx router.Context) {
+func (this *userRolesController) Page(w http.ResponseWriter, r *http.Request) {
 	// According to the key get the value from the groupCache system
 	rst, err := groupcache.GetStaticFile("AuthorityPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
+		hret.Error(w, 404, i18n.Get(r, "as_of_date_page_not_exist"))
 		return
 	}
 
-	hz, err := service.ParseText(ctx, string(rst))
+	hz, err := service.ParseText(r, string(rst))
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.Get(ctx.Request, "as_of_date_page_not_exist"))
+		hret.Error(w, 404, i18n.Get(r, "as_of_date_page_not_exist"))
 		return
 	}
-	hz.Execute(ctx.ResponseWriter, nil)
+	hz.Execute(w, nil)
 }
 
-func (this *userRolesController) UserPage(ctx router.Context) {
+func (this *userRolesController) UserPage(w http.ResponseWriter, r *http.Request) {
 	// According to the key get the value from the groupCache system
 
-	ctx.Request.ParseForm()
+	r.ParseForm()
 
-	var role_id = ctx.Request.FormValue("role_id")
+	var role_id = r.FormValue("role_id")
 
 	rst, err := this.roleModel.GetRow(role_id)
 
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_role_resource_query"))
+		hret.Error(w, 419, i18n.Get(r, "error_role_resource_query"))
 		return
 	}
-	file, _ := service.ParseFile(ctx, "./views/hauth/role_user.tpl")
+	file, _ := service.ParseFile(r, "./views/hauth/role_user.tpl")
 
-	file.Execute(ctx.ResponseWriter, rst)
+	file.Execute(w, rst)
 
 }
 
@@ -102,17 +102,17 @@ func (this *userRolesController) UserPage(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userRolesController) GetRolesByUserId(ctx router.Context) {
-	ctx.Request.ParseForm()
-	user_id := ctx.Request.FormValue("user_id")
+func (this userRolesController) GetRolesByUserId(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	user_id := r.FormValue("user_id")
 
 	rst, err := this.models.GetRolesByUser(user_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_role_query"), err)
+		hret.Error(w, 419, i18n.Get(r, "error_user_role_query"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation GET /v1/auth/user/roles/other userRolesController userRolesController
@@ -137,22 +137,22 @@ func (this userRolesController) GetRolesByUserId(ctx router.Context) {
 // responses:
 //   '200':
 //     description: all domain information
-func (this userRolesController) GetOtherRoles(ctx router.Context) {
-	ctx.Request.ParseForm()
-	user_id := ctx.Request.FormValue("user_id")
+func (this userRolesController) GetOtherRoles(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	user_id := r.FormValue("user_id")
 
 	if len(user_id) == 0 {
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_role_no_user"))
+		hret.Error(w, 419, i18n.Get(r, "error_user_role_no_user"))
 		return
 	}
 
 	rst, err := this.models.GetOtherRoles(user_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_user_role_un_auth"), err)
+		hret.Error(w, 419, i18n.Get(r, "error_user_role_un_auth"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 // swagger:operation POST /v1/auth/user/roles/auth userRolesController userRolesController
@@ -177,31 +177,30 @@ func (this userRolesController) GetOtherRoles(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userRolesController) Auth(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this userRolesController) Auth(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	var rst []models.UserRolesModel
-	err := json.Unmarshal([]byte(ctx.Request.FormValue("JSON")), &rst)
+	err := json.Unmarshal([]byte(r.FormValue("JSON")), &rst)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_unmarsh_json"), err)
+		hret.Error(w, 421, i18n.Get(r, "error_unmarsh_json"), err)
 		return
 	}
 
-	cok, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cok.Value)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	msg, err := this.models.Auth(rst, jclaim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 419, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation POST /v1/auth/user/roles/revoke userRolesController userRolesController
@@ -235,60 +234,60 @@ func (this userRolesController) Auth(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this userRolesController) Revoke(ctx router.Context) {
-	ctx.Request.ParseForm()
-	form := ctx.Request.FormValue("JSON")
+func (this userRolesController) Revoke(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	form := r.FormValue("JSON")
 	var rst []models.UserRolesModel
 
 	err := json.Unmarshal([]byte(form), &rst)
 	if err != nil {
 		logger.Error("解析json格式数据失败，请联系管理员")
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_unmarsh_json"))
+		hret.Error(w, 421, i18n.Get(r, "error_unmarsh_json"))
 		return
 	}
 
 	msg, err := this.models.Revoke(rst)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, msg), err)
+		hret.Error(w, 419, i18n.Get(r, msg), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
-func (this userRolesController) GetOtherUserListByRoleId(ctx router.Context) {
-	ctx.Request.ParseForm()
-	roleId := ctx.Request.FormValue("roleId")
+func (this userRolesController) GetOtherUserListByRoleId(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	roleId := r.FormValue("roleId")
 	if len(roleId) == 0 {
 		logger.Error("role id is empty")
-		hret.Error(ctx.ResponseWriter, 423, "查询失败，角色编码为空")
+		hret.Error(w, 423, "查询失败，角色编码为空")
 		return
 	}
 	rst, err := this.models.GetOtherUsersByRoleId(roleId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
-func (this userRolesController) GetUserListByRoleId(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this userRolesController) GetUserListByRoleId(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
-	roleId := ctx.Request.FormValue("roleId")
+	roleId := r.FormValue("roleId")
 	if len(roleId) == 0 {
 		logger.Error("role id is empty")
-		hret.Error(ctx.ResponseWriter, 423, "查询失败，角色编码为空")
+		hret.Error(w, 423, "查询失败，角色编码为空")
 		return
 	}
 	rst, err := this.models.GetRelationUsersByRoleId(roleId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, err.Error())
+		hret.Error(w, 423, err.Error())
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }
 
 func init() {

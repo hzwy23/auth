@@ -4,13 +4,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/utils/crypto/haes"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/panda/crypto/aes"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
 )
 
 type passwdController struct {
@@ -55,60 +54,60 @@ var PasswdController = &passwdController{
 // responses:
 //   '200':
 //     description: all domain information
-func (this passwdController) PostModifyPasswd(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this passwdController) PostModifyPasswd(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 
-	oriPasswd := ctx.Request.FormValue("orapasswd")
-	newPasswd := ctx.Request.FormValue("newpasswd")
-	surePasswd := ctx.Request.FormValue("surepasswd")
+	oriPasswd := r.FormValue("orapasswd")
+	newPasswd := r.FormValue("newpasswd")
+	surePasswd := r.FormValue("surepasswd")
 
 	if oriPasswd == newPasswd {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_same"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_same"))
 		return
 	}
 
 	if newPasswd != surePasswd {
 		logger.Error("new passwd confirm failed. please check your new password and confirm password")
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_confirm_failed"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_confirm_failed"))
 		return
 	}
 
 	if len(strings.TrimSpace(newPasswd)) != len(newPasswd) {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_blank"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_blank"))
 		return
 	}
 
 	if len(strings.TrimSpace(newPasswd)) < 6 || len(strings.TrimSpace(newPasswd)) > 30 {
 		logger.Error("新密码长度不能小于6位,且不能大于30位")
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_passwd_short"))
+		hret.Error(w, 421, i18n.Get(r, "error_passwd_short"))
 		return
 	}
 
-	oriEn, err := haes.Encrypt(oriPasswd)
+	oriEn, err := aes.Encrypt(oriPasswd)
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_password_encrpty"))
+		hret.Error(w, 421, i18n.Get(r, "error_password_encrpty"))
 		return
 	}
 
-	newPd, err := haes.Encrypt(newPasswd)
+	newPd, err := aes.Encrypt(newPasswd)
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_password_encrpty"))
+		hret.Error(w, 421, i18n.Get(r, "error_password_encrpty"))
 		return
 	}
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	jclaim, err := jwt.ParseJwt(cookie.Value)
+
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	err_msg, err := this.p.UpdateMyPasswd(newPd, jclaim.UserId, oriEn)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, err_msg), err)
+		hret.Error(w, 421, i18n.Get(r, err_msg), err)
 		return
 	}
-	http.SetCookie(ctx.ResponseWriter, &http.Cookie{Name: "Authorization", Value: "", Path: "/", MaxAge: -1})
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	http.SetCookie(w, &http.Cookie{Name: "Authorization", Value: "", Path: "/", MaxAge: -1})
+	hret.Success(w, i18n.Success(r))
 }

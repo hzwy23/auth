@@ -1,6 +1,6 @@
 package service
 
-import "github.com/hzwy23/auth-core/models"
+import "github.com/hzwy23/auth/models"
 
 var RouteService = &RouteServiceImpl{}
 

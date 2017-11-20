@@ -1,14 +1,14 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/utils/crypto/sha1"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"net/http"
+	"github.com/hzwy23/panda/crypto"
 )
 
 var homePageMenusModel = new(models.HomePageMenusModel)
@@ -40,17 +40,17 @@ var homePageMenusModel = new(models.HomePageMenusModel)
 //     description: disconnect, please login.
 //   '404':
 //     description: page not found
-func SubSystemEntry(ctx router.Context) {
-	defer hret.HttpPanic()
+func SubSystemEntry(w http.ResponseWriter,r *http.Request) {
+	defer hret.RecvPanic()
 
-	ctx.Request.ParseForm()
-	id := ctx.Request.FormValue("Id")
+	r.ParseForm()
+	id := r.FormValue("Id")
 
 	// get user connection information from cookie.
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
@@ -58,11 +58,11 @@ func SubSystemEntry(ctx router.Context) {
 	url, err := homePageMenusModel.GetUrl(jclaim.UserId, id)
 	if err != nil {
 		logger.Error(err)
-		ctx.WriteString(url)
+		w.Write([]byte(url))
 		return
 	}
 
-	key := sha1.GenSha1Key(id, jclaim.UserId, url)
+	key := crypto.Sha1(id, jclaim.UserId, url)
 
 	if !groupcache.FileIsExist(key) {
 		groupcache.RegisterStaticFile(key, url)
@@ -71,10 +71,10 @@ func SubSystemEntry(ctx router.Context) {
 	tpl, err := groupcache.GetStaticFile(key)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	ctx.ResponseWriter.Write(tpl)
+	w.Write(tpl)
 }
 
 // swagger:operation GET /v1/auth/main/menu HomePageMenus HomePageMenus
@@ -110,49 +110,49 @@ func SubSystemEntry(ctx router.Context) {
 //     description: disconnect
 //   '421':
 //     description: get menu information failed.
-func IndexMenus(ctx router.Context) {
-	defer hret.HttpPanic()
-	ctx.Request.ParseForm()
-	form := ctx.Request.Form
+func IndexMenus(w http.ResponseWriter,r *http.Request) {
+	defer hret.RecvPanic()
+	r.ParseForm()
 
+	form := r.Form
 	id := form.Get("Id")
 	typeId := form.Get("TypeId")
 
 	// get user connection information from cookie
-	cookie, _ := ctx.Request.Cookie("Authorization")
-	claim, err := jwt.ParseJwt(cookie.Value)
+
+	claim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	ojs, err := homePageMenusModel.Get(id, typeId, claim.UserId)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_query_menu"))
+		hret.Error(w, 421, i18n.Get(r, "error_query_menu"))
 		return
 	}
-	ctx.ResponseWriter.Write(ojs)
+	w.Write(ojs)
 }
 
-func AllMenusExceptButton(ctx router.Context) {
-	ctx.Request.ParseForm()
+func AllMenusExceptButton(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
-	meunId := ctx.Request.FormValue("resId")
+	meunId := r.FormValue("resId")
 
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error("Get user connect info failed. please login again, error info is:", err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
 	menus, err := homePageMenusModel.GetAllMenusExceptButton(jclaim.UserId, meunId)
 	if err != nil {
 		logger.Error("Get meuns failed. error info is :", err)
-		hret.Error(ctx.ResponseWriter, 403, err.Error())
+		hret.Error(w, 403, err.Error())
 		return
 	}
-	ctx.ResponseWriter.Write(menus)
+	w.Write(menus)
 }

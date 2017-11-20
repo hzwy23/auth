@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/golang/groupcache"
-	"github.com/hzwy23/utils/logger"
+	"github.com/hzwy23/panda/logger"
 )
 
 // 这个包提供了缓存静态文件的方法

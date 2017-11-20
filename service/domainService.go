@@ -1,14 +1,14 @@
 package service
 
 import (
+	"github.com/hzwy23/panda"
 	"net/http"
 	"strings"
 
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/validator"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/validator"
 )
 
 var DomainService = &DomainServiceImpl{}
@@ -53,14 +53,14 @@ func DomainAuth(req *http.Request, domain_id string, pattern string) bool {
 
 func checkDomainAuthLevel(req *http.Request, domain_id string) int {
 	level := -1
-	jclaim, err := jwt.GetJwtClaims(req)
+	jclaim, err := jwt.ParseHttp(req)
 	if err != nil {
 		logger.Error(err)
 		return level
 	}
 	// if the user is not admin, and user_id is not owner this domain_id
 	// check share info. or not
-	if utils.IsAdmin(jclaim.UserId) {
+	if panda.IsAdmin(jclaim.UserId) {
 		return 2
 	} else {
 		return DomainService.GetAuthLevel(jclaim.UserId, domain_id)

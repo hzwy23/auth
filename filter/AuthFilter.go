@@ -1,15 +1,27 @@
 package filter
 
 import (
-	"github.com/hzwy23/utils/router"
-	"github.com/hzwy23/auth-core/service"
+	"strings"
+	"github.com/hzwy23/auth/service"
+	"net/http"
+	"github.com/hzwy23/panda/route"
 )
 
-func AuthFilter() {
-	// 处理系统内部路由
-	router.InsertFilter("/*", router.BeforeExec, func(ctx router.Context) {
-		service.Identify(ctx)
-	}, true)
+type AuthFilter struct {
+}
+
+func (this *AuthFilter)staticFile(url string)bool{
+	if strings.HasPrefix(url,"/static"){
+		return true
+	}
+	return url == "/favicon.ico"
+}
+
+func (this *AuthFilter) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	if this.staticFile(r.URL.Path) || service.Identify(w,r) {
+		nw:=route.NewResponse(w)
+		next(nw, r)
+	}
 }
 
 func init() {

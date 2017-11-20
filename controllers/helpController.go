@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"net/http"
 )
 
 type helpController struct {
@@ -28,20 +28,20 @@ var HelpCtl = &helpController{}
 // responses:
 //   '200':
 //     description: all domain information
-func (this helpController) Page(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this helpController) Page(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
 
 	rst, err := groupcache.GetStaticFile("AsofdateHelpPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	ctx.ResponseWriter.Write(rst)
+	w.Write(rst)
 }
 
 func init() {

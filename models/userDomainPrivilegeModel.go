@@ -1,18 +1,18 @@
 package models
 
 import (
-	"github.com/hzwy23/auth-core/dto"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/auth/dto"
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils"
-)
+	"github.com/hzwy23/panda"
+	)
 
 type UserDomainPrivilege struct {
 }
 
 func (this *UserDomainPrivilege) GetByUserId(userId string) ([]dto.AccessDomainDTO, error) {
 	var rst []dto.AccessDomainDTO
-	if utils.IsAdmin(userId) {
+	if panda.IsAdmin(userId) {
 		err := dbobj.QueryForSlice(sys_rdbms_053, &rst)
 		return rst, err
 	}

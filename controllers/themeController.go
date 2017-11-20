@@ -1,15 +1,15 @@
 package controllers
 
 import (
-	"github.com/hzwy23/utils"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/jwt"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
-	"github.com/hzwy23/utils/validator"
-	"github.com/hzwy23/auth-core/entity"
-	"github.com/hzwy23/auth-core/models"
+	"github.com/hzwy23/auth/entity"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/panda"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/jwt"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/validator"
+	"net/http"
 )
 
 type themeController struct {
@@ -44,15 +44,15 @@ var ThemeCtl = &themeController{
 // responses:
 //   '200':
 //     description: success
-func (this *themeController) Post(ctx router.Context) {
-	ctx.Request.ParseForm()
-	theme_id := ctx.Request.FormValue("theme_id")
+func (this *themeController) Post(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	theme_id := r.FormValue("theme_id")
 
 	// get user connection info from cookes.
-	jclaim, err := jwt.GetJwtClaims(ctx.Request)
+	jclaim, err := jwt.ParseHttp(r)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 403, i18n.Disconnect(ctx.Request))
+		hret.Error(w, 403, i18n.Disconnect(r))
 		return
 	}
 
@@ -61,10 +61,10 @@ func (this *themeController) Post(ctx router.Context) {
 	err = this.muser.Put(jclaim.UserId, theme_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_theme_update"), err)
+		hret.Error(w, 421, i18n.Get(r, "error_theme_update"), err)
 		return
 	}
-	hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+	hret.Success(w, i18n.Success(r))
 }
 
 // swagger:operation PUT /v1/auth/resource/config/theme themeController themeController
@@ -82,12 +82,12 @@ func (this *themeController) Post(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this themeController) Put(ctx router.Context) {
+func (this themeController) Put(w http.ResponseWriter, r *http.Request) {
 	var row entity.ThemeData
-	err := utils.ParseForm(ctx.Request, &row)
+	err := panda.ParseForm(r, &row)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 423, "参数解析失败，请联系管理员")
+		hret.Error(w, 423, "参数解析失败，请联系管理员")
 		return
 	}
 	if validator.IsNull(row.SortId) {
@@ -100,27 +100,27 @@ func (this themeController) Put(ctx router.Context) {
 			// 没有这个主题的配置信息,新增主题信息
 			err := this.mres.Post(row)
 			if err != nil {
-				hret.Error(ctx.ResponseWriter, 421, err.Error())
+				hret.Error(w, 421, err.Error())
 				return
 			}
-			hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+			hret.Success(w, i18n.Success(r))
 			return
 		} else if flag > 0 {
 			// 更新主题信息
 			err := this.mres.Update(row)
 			if err != nil {
 				logger.Error(err)
-				hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_theme_update"), err)
+				hret.Error(w, 421, i18n.Get(r, "error_theme_update"), err)
 				return
 			}
-			hret.Success(ctx.ResponseWriter, i18n.Success(ctx.Request))
+			hret.Success(w, i18n.Success(r))
 			return
 		} else {
-			hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_theme_update"))
+			hret.Error(w, 421, i18n.Get(r, "error_theme_update"))
 			return
 		}
 	} else {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_theme_virtual_forbid"))
+		hret.Error(w, 421, i18n.Get(r, "error_theme_virtual_forbid"))
 		return
 	}
 }
@@ -147,9 +147,9 @@ func (this themeController) Put(ctx router.Context) {
 // responses:
 //   '200':
 //     description: success
-func (this themeController) QueryTheme(ctx router.Context) {
-	ctx.Request.ParseForm()
-	form := ctx.Request.Form
+func (this themeController) QueryTheme(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	form := r.Form
 
 	res_id := form.Get("res_id")
 	theme_id := form.Get("theme_id")
@@ -157,8 +157,8 @@ func (this themeController) QueryTheme(ctx router.Context) {
 	rst, err := this.mres.GetDetails(res_id, theme_id)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 419, i18n.Get(ctx.Request, "error_resource_query_theme"), err)
+		hret.Error(w, 419, i18n.Get(r, "error_resource_query_theme"), err)
 		return
 	}
-	hret.Json(ctx.ResponseWriter, rst)
+	hret.Json(w, rst)
 }

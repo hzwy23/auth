@@ -4,14 +4,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hzwy23/auth-core/groupcache"
-	"github.com/hzwy23/auth-core/models"
-	"github.com/hzwy23/auth-core/service"
-	"github.com/hzwy23/utils/hret"
-	"github.com/hzwy23/utils/i18n"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/router"
+	"github.com/hzwy23/auth/groupcache"
+	"github.com/hzwy23/auth/models"
+	"github.com/hzwy23/auth/service"
+	"github.com/hzwy23/panda/hret"
+	"github.com/hzwy23/panda/i18n"
+	"github.com/hzwy23/panda/logger"
 	"github.com/tealeg/xlsx"
+	"net/http"
 )
 
 type handleLogsController struct {
@@ -38,20 +38,20 @@ var HandleLogsCtl = &handleLogsController{}
 //     description: success
 //   '404':
 //     description: page not found
-func (this *handleLogsController) Page(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this *handleLogsController) Page(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
 	rst, err := groupcache.GetStaticFile("AsofdateHandleLogPage")
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz, err := service.ParseText(ctx, string(rst))
+	hz, err := service.ParseText(r, string(rst))
 	if err != nil {
-		hret.Error(ctx.ResponseWriter, 404, i18n.PageNotFound(ctx.Request))
+		hret.Error(w, 404, i18n.PageNotFound(r))
 		return
 	}
-	hz.Execute(ctx.ResponseWriter, nil)
+	hz.Execute(w, nil)
 }
 
 // swagger:operation GET /v1/auth/handle/logs/download handleLogsController handleLogsController
@@ -74,31 +74,31 @@ func (this *handleLogsController) Page(ctx router.Context) {
 //     description: Insufficient permissions
 //   '421':
 //     description: query logs information failed.
-func (this handleLogsController) Download(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this handleLogsController) Download(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
-	if !service.BasicAuth(ctx.Request) {
-		hret.Error(ctx.ResponseWriter, 403, i18n.NoAuth(ctx.Request))
+	if !service.BasicAuth(r) {
+		hret.Error(w, 403, i18n.NoAuth(r))
 		return
 	}
-	ctx.ResponseWriter.Header().Set("Content-Type", "application/vnd.ms-excel")
+	w.Header().Set("Content-Type", "application/vnd.ms-excel")
 
 	rst, err := this.model.Download()
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_get_failed"))
+		hret.Error(w, 421, i18n.Get(r, "error_handle_logs_get_failed"))
 		return
 	}
 
 	file, err := xlsx.OpenFile(filepath.Join(os.Getenv("HBIGDATA_HOME"), "views", "uploadTemplate", "hauthHandleLogsTemplate.xlsx"))
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_open_error"), err)
+		hret.Error(w, 421, i18n.Get(r, "error_handle_logs_open_error"), err)
 		return
 	}
 	sheet, ok := file.Sheet["handle_logs"]
 	if !ok {
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_sheet_error"))
+		hret.Error(w, 421, i18n.Get(r, "error_handle_logs_sheet_error"))
 		return
 	}
 
@@ -137,7 +137,7 @@ func (this handleLogsController) Download(ctx router.Context) {
 		sheet.Rows = append(sheet.Rows[0:1], sheet.Rows[2:]...)
 	}
 
-	file.Write(ctx.ResponseWriter)
+	file.Write(w)
 }
 
 // swagger:operation GET /v1/auth/handle/logs handleLogsController handleLogsController
@@ -175,20 +175,20 @@ func (this handleLogsController) Download(ctx router.Context) {
 //      description: Insufficient permissions
 //   '421':
 //      description: query logs information failed.
-func (this handleLogsController) GetHandleLogs(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this handleLogsController) GetHandleLogs(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
 	// Get form data from client request.
-	offset := ctx.Request.FormValue("offset")
-	limit := ctx.Request.FormValue("limit")
+	offset := r.FormValue("offset")
+	limit := r.FormValue("limit")
 
 	rst, total, err := this.model.Get(offset, limit)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_query_failed"))
+		hret.Error(w, 421, i18n.Get(r, "error_handle_logs_query_failed"))
 		return
 	}
-	hret.BootstrapTableJson(ctx.ResponseWriter, total, rst)
+	hret.BootstrapTableJson(w, total, rst)
 }
 
 // swagger:operation GET /v1/auth/handle/logs/search handleLogsController handleLogsController
@@ -236,24 +236,24 @@ func (this handleLogsController) GetHandleLogs(ctx router.Context) {
 //     description: Insufficient permissions
 //   '421':
 //     description: query logs information failed.
-func (this handleLogsController) SerachLogs(ctx router.Context) {
-	ctx.Request.ParseForm()
+func (this handleLogsController) SerachLogs(w http.ResponseWriter,r *http.Request) {
+	r.ParseForm()
 
 	// Get form data from request.
-	userid := ctx.Request.FormValue("UserId")
-	start := ctx.Request.FormValue("StartDate")
-	end := ctx.Request.FormValue("EndDate")
-	offset := ctx.Request.FormValue("offset")
-	limit := ctx.Request.FormValue("limit")
+	userid := r.FormValue("UserId")
+	start := r.FormValue("StartDate")
+	end := r.FormValue("EndDate")
+	offset := r.FormValue("offset")
+	limit := r.FormValue("limit")
 
 	rst, cnt, err := this.model.Search(userid, start, end, offset, limit)
 	if err != nil {
 		logger.Error(err)
-		hret.Error(ctx.ResponseWriter, 421, i18n.Get(ctx.Request, "error_handle_logs_query_failed"))
+		hret.Error(w, 421, i18n.Get(r, "error_handle_logs_query_failed"))
 		return
 	}
 
-	hret.BootstrapTableJson(ctx.ResponseWriter, cnt, rst)
+	hret.BootstrapTableJson(w, cnt, rst)
 }
 
 func init() {

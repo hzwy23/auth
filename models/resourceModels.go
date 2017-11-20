@@ -4,10 +4,10 @@ import (
 	"errors"
 
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/validator"
-	"github.com/hzwy23/auth-core/dto"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/validator"
+	"github.com/hzwy23/auth/dto"
+	"github.com/hzwy23/auth/entity"
 )
 
 type ResourceModel struct {

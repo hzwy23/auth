@@ -1,10 +1,10 @@
 package models
 
 import (
+	"github.com/hzwy23/auth/entity"
 	"github.com/hzwy23/dbobj"
-	"github.com/hzwy23/utils/logger"
-	"github.com/hzwy23/utils/uuid"
-	"github.com/hzwy23/auth-core/entity"
+	"github.com/hzwy23/panda/logger"
+	"github.com/hzwy23/panda/uuid"
 )
 
 type ThemeResourceModel struct {
@@ -45,7 +45,7 @@ func (this *ThemeResourceModel) Update(row entity.ThemeData) error {
 // 新建资源主题信息
 func (this *ThemeResourceModel) Post(row entity.ThemeData) error {
 
-	_, err := dbobj.Exec(sys_rdbms_008, uuid.GenUUID(),
+	_, err := dbobj.Exec(sys_rdbms_008, uuid.Random(),
 		row.ThemeId, row.ResId, row.ResUrl, row.ResOpenType,
 		row.ResBgColor, row.ResClass, row.GroupId,
 		row.ResImg, row.SortId, row.NewIframe)
