@@ -10,8 +10,8 @@ import (
 type AuthFilter struct {
 }
 
-func (this *AuthFilter)staticFile(url string)bool{
-	if strings.HasPrefix(url,"/static"){
+func (this *AuthFilter)staticFile(url string) bool {
+	if strings.HasPrefix(url,"/static") {
 		return true
 	}
 	return url == "/favicon.ico"
