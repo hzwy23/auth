@@ -188,7 +188,7 @@ func (this handleLogsController) GetHandleLogs(w http.ResponseWriter,r *http.Req
 		hret.Error(w, 421, i18n.Get(r, "error_handle_logs_query_failed"))
 		return
 	}
-	hret.BootstrapTableJson(w, total, rst)
+	hret.BootstrapTable(w, total, rst)
 }
 
 // swagger:operation GET /v1/auth/handle/logs/search handleLogsController handleLogsController
@@ -253,7 +253,7 @@ func (this handleLogsController) SerachLogs(w http.ResponseWriter,r *http.Reques
 		return
 	}
 
-	hret.BootstrapTableJson(w, cnt, rst)
+	hret.BootstrapTable(w, cnt, rst)
 }
 
 func init() {
