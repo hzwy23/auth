@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"strings"
 	"github.com/hzwy23/panda/config"
 	"github.com/hzwy23/panda/route"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/hzwy23/auth/filter"
@@ -18,7 +18,7 @@ type RegisterFunc func()
 var regApp = make(map[string]RegisterFunc)
 var regLock = new(sync.RWMutex)
 
-type WebApp struct{
+type WebApp struct {
 	Port        string
 	HttpsEnable bool
 	HttpsCrt    string
@@ -26,10 +26,10 @@ type WebApp struct{
 }
 
 var AppConfig = &WebApp{
-	Port:":8080",
-	HttpsEnable:false,
-	HttpsCrt:"./conf/rui.crt",
-	HttpsKey:"./conf/rui.key",
+	Port:        ":8080",
+	HttpsEnable: false,
+	HttpsCrt:    "./conf/rui.crt",
+	HttpsKey:    "./conf/rui.key",
 }
 
 func AppRegister(name string, registerFunc RegisterFunc) {
@@ -65,30 +65,30 @@ func Bootstrap() {
 
 	// 启动服务
 	// 从配置文件获取端口号
-	c,err := config.Load("conf/app.conf",config.INI)
+	c, err := config.Load("conf/app.conf", config.INI)
 	if err != nil {
 		logger.Warn("读取配置文件conf/app.conf文件失败，使用默认参数启动服务")
-		http.ListenAndServe(AppConfig.Port,middle)
+		http.ListenAndServe(AppConfig.Port, middle)
 		return
 	}
 
 	// 从配置文件中读取端口号
-	port,err := c.Get("ServerPort")
+	port, err := c.Get("ServerPort")
 	if err != nil {
 		logger.Warn("http.port 不存在，使用默认端口启动服务")
-		http.ListenAndServe(AppConfig.Port,middle)
+		http.ListenAndServe(AppConfig.Port, middle)
 		return
 	}
 	AppConfig.Port = port
 
 	// 检查是否开启https
-	httpsEnable,err := c.Get("https.enable")
+	httpsEnable, err := c.Get("https.enable")
 	if err != nil {
 		logger.Warn("http.port 不存在，使用默认端口启动服务")
-		http.ListenAndServe(AppConfig.Port,middle)
+		http.ListenAndServe(AppConfig.Port, middle)
 		return
 	}
-	AppConfig.HttpsEnable = (strings.ToLower(httpsEnable)=="true")
+	AppConfig.HttpsEnable = (strings.ToLower(httpsEnable) == "true")
 	// 使用http启动web服务
 	if !AppConfig.HttpsEnable {
 		logger.Info("start web server with http.")
@@ -97,7 +97,7 @@ func Bootstrap() {
 	}
 
 	// 使用https启动服务，读取crt文件地址
-	httpsCrt,err := c.Get("https.crt")
+	httpsCrt, err := c.Get("https.crt")
 	if err != nil {
 		logger.Warn("http.port 不存在，使用默认端口启动服务")
 	} else {
@@ -105,13 +105,13 @@ func Bootstrap() {
 	}
 
 	// 使用https启动服务，读取key文件地址
-	httpsKey,err := c.Get("https.key")
+	httpsKey, err := c.Get("https.key")
 	if err != nil {
 		logger.Warn("http.port 不存在，使用默认端口启动服务")
 	} else {
 		AppConfig.HttpsKey = httpsKey
 	}
 
-	http.ListenAndServeTLS(":"+AppConfig.Port,AppConfig.HttpsCrt,AppConfig.HttpsKey,middle)
-	
+	http.ListenAndServeTLS(":"+AppConfig.Port, AppConfig.HttpsCrt, AppConfig.HttpsKey, middle)
+
 }
