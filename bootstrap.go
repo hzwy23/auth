@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/hzwy23/panda/config"
 	"github.com/hzwy23/panda/route"
 	"net/http"
@@ -84,14 +85,16 @@ func Bootstrap() {
 	// 检查是否开启https
 	httpsEnable, err := c.Get("https.enable")
 	if err != nil {
-		logger.Warn("http.port 不存在，使用默认端口启动服务")
+		logger.Warn("http.port 不存在，使用默认端口启动服务, url is: http://"+AppConfig.Port)
+		fmt.Println("start web server with default config, url is: http://"+AppConfig.Port)
 		http.ListenAndServe(AppConfig.Port, middle)
 		return
 	}
 	AppConfig.HttpsEnable = (strings.ToLower(httpsEnable) == "true")
 	// 使用http启动web服务
 	if !AppConfig.HttpsEnable {
-		logger.Info("start web server with http.")
+		logger.Info("start web server with http. url is: http://"+AppConfig.Port)
+		fmt.Println("start web server with http. url is: http://"+AppConfig.Port)
 		http.ListenAndServe(":"+AppConfig.Port, middle)
 		return
 	}
@@ -111,7 +114,8 @@ func Bootstrap() {
 	} else {
 		AppConfig.HttpsKey = httpsKey
 	}
-
+	logger.Info("start web server with https. url is: https://"+AppConfig.Port)
+	fmt.Println("start web server with https. url is: https://"+AppConfig.Port)
 	http.ListenAndServeTLS(":"+AppConfig.Port, AppConfig.HttpsCrt, AppConfig.HttpsKey, middle)
 
 }
